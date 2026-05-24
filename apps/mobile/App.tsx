@@ -12,13 +12,19 @@ import {
 } from "react-native"
 import { WebView } from "react-native-webview"
 
+const loadingTimeoutMs = 15000
+
 const copy = {
   title: "\u0631\u0648\u062A\u064A\u0646\u064A",
   refresh: "\u062A\u062D\u062F\u064A\u062B",
   errorTitle:
     "\u062A\u0639\u0630\u0631 \u0641\u062A\u062D \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
-  errorBody:
-    "\u062A\u0623\u0643\u062F \u0623\u0646 \u0631\u0627\u0628\u0637 \u0627\u0644\u0648\u064A\u0628 \u064A\u0639\u0645\u0644. \u0641\u064A \u0645\u062D\u0627\u0643\u064A Android \u0627\u0644\u0645\u062D\u0644\u064A \u064A\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u062A\u0637\u0628\u064A\u0642 http://10.0.2.2:3000 \u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0627.",
+  errorHint:
+    "\u0625\u0630\u0627 \u0643\u0646\u062A \u062A\u0633\u062A\u062E\u062F\u0645 \u0647\u0627\u062A\u0641\u0627 \u062D\u0642\u064A\u0642\u064A\u0627\u060C \u0627\u0633\u062A\u062E\u062F\u0645 \u0631\u0627\u0628\u0637 HTTPS \u0645\u0646\u0634\u0648\u0631\u0627 \u0623\u0648 \u0639\u0646\u0648\u0627\u0646 IP \u0644\u062C\u0647\u0627\u0632\u0643 \u0639\u0644\u0649 \u0646\u0641\u0633 \u0634\u0628\u0643\u0629 Wi-Fi.",
+  loadingTimeout:
+    "\u0627\u0646\u062A\u0647\u062A \u0645\u0647\u0644\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644.",
+  networkError:
+    "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644.",
   retry:
     "\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629",
 }
@@ -26,8 +32,29 @@ const copy = {
 export default function App() {
   const webViewRef = React.useRef<WebView>(null)
   const [isLoading, setIsLoading] = React.useState(true)
-  const [hasError, setHasError] = React.useState(false)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
+  const [loadAttempt, setLoadAttempt] = React.useState(0)
   const appUrl = getRoutineAppUrl()
+  const hasError = loadError !== null
+
+  React.useEffect(() => {
+    if (!isLoading || hasError) {
+      return undefined
+    }
+
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false)
+      setLoadError(copy.loadingTimeout)
+    }, loadingTimeoutMs)
+
+    return () => clearTimeout(timeoutId)
+  }, [hasError, isLoading, loadAttempt])
+
+  function retryLoad() {
+    setLoadError(null)
+    setIsLoading(true)
+    setLoadAttempt((attempt) => attempt + 1)
+  }
 
   return (
     <View style={styles.container}>
@@ -43,10 +70,7 @@ export default function App() {
         </View>
         <Pressable
           accessibilityRole="button"
-          onPress={() => {
-            setHasError(false)
-            webViewRef.current?.reload()
-          }}
+          onPress={retryLoad}
           style={styles.button}
         >
           <Text style={styles.buttonText}>{copy.refresh}</Text>
@@ -60,14 +84,11 @@ export default function App() {
               {copy.errorTitle}
             </Text>
             <Text selectable style={styles.messageBody}>
-              {copy.errorBody}
+              {formatErrorMessage(appUrl, loadError)}
             </Text>
             <Pressable
               accessibilityRole="button"
-              onPress={() => {
-                setHasError(false)
-                webViewRef.current?.reload()
-              }}
+              onPress={retryLoad}
               style={styles.primaryButton}
             >
               <Text style={styles.primaryButtonText}>{copy.retry}</Text>
@@ -75,6 +96,7 @@ export default function App() {
           </View>
         ) : (
           <WebView
+            key={loadAttempt}
             ref={webViewRef}
             source={{ uri: appUrl }}
             applicationNameForUserAgent="MuslimRoutineAndroid"
@@ -84,13 +106,18 @@ export default function App() {
             originWhitelist={["http://*", "https://*"]}
             onLoadStart={() => setIsLoading(true)}
             onLoadEnd={() => setIsLoading(false)}
-            onError={() => {
+            onError={(event) => {
               setIsLoading(false)
-              setHasError(true)
+              setLoadError(
+                event.nativeEvent.description || copy.networkError,
+              )
             }}
             onHttpError={(event) => {
-              if (event.nativeEvent.statusCode >= 500) {
-                setHasError(true)
+              if (event.nativeEvent.statusCode >= 400) {
+                setIsLoading(false)
+                setLoadError(
+                  `${copy.networkError} HTTP ${event.nativeEvent.statusCode}`,
+                )
               }
             }}
             onShouldStartLoadWithRequest={(request) => {
@@ -126,6 +153,10 @@ function getRoutineAppUrl() {
     : typeof configuredUrl === "string" && configuredUrl.length > 0
       ? configuredUrl
       : "http://10.0.2.2:3000"
+}
+
+function formatErrorMessage(appUrl: string, reason: string | null) {
+  return `${reason || copy.networkError}\n${appUrl}\n${copy.errorHint}`
 }
 
 const styles = StyleSheet.create({

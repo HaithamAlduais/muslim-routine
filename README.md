@@ -48,6 +48,8 @@ The Expo app lives in `apps/mobile`. It opens the production web app in a native
 
 For local emulator testing, the default app URL is `http://10.0.2.2:3000`, which points the Android emulator back to the host machine. For a real phone or a production APK, set `EXPO_PUBLIC_ROUTINE_APP_URL` to a deployed HTTPS URL before building.
 
+For real-phone local testing, run the web app on the Wi-Fi interface and use the `phone-apk` build profile. The current local phone profile points to `http://192.168.1.17:3000`, so the phone must be on the same network and the web server must be reachable on that address.
+
 ```bash
 corepack pnpm --dir apps/mobile start
 corepack pnpm --dir apps/mobile typecheck
@@ -55,6 +57,7 @@ corepack pnpm --dir apps/mobile doctor
 
 # Requires an Expo account login.
 corepack pnpm --dir apps/mobile build:apk
+corepack pnpm --dir apps/mobile build:phone-apk
 ```
 
 If you are not logged into EAS yet:

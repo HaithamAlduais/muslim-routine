@@ -24,7 +24,8 @@
     "test": "echo \"No mobile tests yet\"",
     "typecheck": "tsc --noEmit",
     "doctor": "pnpm dlx expo-doctor@latest",
-    "build:apk": "pnpm dlx eas-cli@latest build -p android --profile preview-apk"
+    "build:apk": "pnpm dlx eas-cli@latest build -p android --profile preview-apk",
+    "build:phone-apk": "pnpm dlx eas-cli@latest build -p android --profile phone-apk"
   },
   "private": true
 }
