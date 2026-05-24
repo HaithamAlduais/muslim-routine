@@ -24,7 +24,7 @@ describe("buildWeekPreview", () => {
       "صلاة العصر",
       "الأسرة",
       "غداء وجلسة مع العائلة",
-      "العائلة",
+      "مهام",
       "آخر ساعة",
       "صلاة المغرب",
       "عربي",
@@ -55,9 +55,10 @@ describe("buildWeekPreview", () => {
       { title: "نوم", repeatDays: [5, 6] },
       { title: "فطور مع الأسرة", repeatDays: [0, 2, 3, 5, 6] },
       { title: "غداء مع العائلة", repeatDays: [0, 2, 3, 6] },
+      { title: "مهام", repeatDays: [0, 1, 2, 3, 4, 5] },
       { title: "الأسرة", repeatDays: [0, 1, 2, 3, 4] },
       { title: "غداء وجلسة مع العائلة", repeatDays: [5] },
-      { title: "العائلة", repeatDays: [6] },
+      { title: "مهام", repeatDays: [6] },
       { title: "آخر ساعة", repeatDays: [5] },
       { title: "لعب", repeatDays: [5, 6] },
       { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [4] },
@@ -114,7 +115,7 @@ describe("buildWeekPreview", () => {
       preview.map((day) =>
         day.blocks.reduce((total, block) => total + block.occurrences.length, 0)
       )
-    ).toEqual([17, 15, 17, 17, 15, 18, 18])
+    ).toEqual([17, 15, 17, 17, 15, 18, 17])
 
     const datesForTemplate = (templateId: string) =>
       preview.flatMap((day) =>
@@ -150,6 +151,14 @@ describe("buildWeekPreview", () => {
         "2026-05-27",
         "2026-05-30",
       ],
+      "dhuhr-tasks": [
+        "2026-05-24",
+        "2026-05-25",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-28",
+        "2026-05-29",
+      ],
       "family-core": [
         "2026-05-24",
         "2026-05-25",
@@ -158,7 +167,7 @@ describe("buildWeekPreview", () => {
         "2026-05-28",
       ],
       "friday-family-lunch-session": ["2026-05-29"],
-      "extended-family": ["2026-05-30"],
+      "saturday-asr-tasks": ["2026-05-30"],
       "last-hour": ["2026-05-29"],
       play: ["2026-05-29", "2026-05-30"],
       "friends-family-first": ["2026-05-28"],
@@ -232,6 +241,62 @@ describe("buildWeekPreview", () => {
         title: "آخر ساعة",
         startTime: "2026-05-29T17:38:00+03:00",
         endTime: "2026-05-29T18:38:00+03:00",
+      },
+    ])
+  })
+
+  it("uses the Saturday lunch exception and moves tasks into the Asr family slot", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-30",
+      days: 1,
+      templates: seedTaskTemplates,
+    })
+    const saturday = preview[0]!
+    const blockById = new Map(
+      saturday.blocks.map((block) => [block.timeBlockId, block])
+    )
+
+    expect(
+      blockById.get("dhuhr_to_asr")!.occurrences.map((occurrence) => ({
+        templateId: occurrence.templateId,
+        title: occurrence.title,
+        startTime: occurrence.startTime,
+        endTime: occurrence.endTime,
+      }))
+    ).toEqual([
+      {
+        templateId: "dhuhr",
+        title: "صلاة الظهر",
+        startTime: "2026-05-30T11:54:00+03:00",
+        endTime: "2026-05-30T12:14:00+03:00",
+      },
+      {
+        templateId: "family-lunch",
+        title: "غداء مع العائلة",
+        startTime: "2026-05-30T12:14:00+03:00",
+        endTime: "2026-05-30T12:44:00+03:00",
+      },
+    ])
+
+    expect(
+      blockById.get("asr_to_maghrib")!.occurrences.map((occurrence) => ({
+        templateId: occurrence.templateId,
+        title: occurrence.title,
+        startTime: occurrence.startTime,
+        endTime: occurrence.endTime,
+      }))
+    ).toEqual([
+      {
+        templateId: "asr",
+        title: "صلاة العصر",
+        startTime: "2026-05-30T15:15:00+03:00",
+        endTime: "2026-05-30T15:35:00+03:00",
+      },
+      {
+        templateId: "saturday-asr-tasks",
+        title: "مهام",
+        startTime: "2026-05-30T15:35:00+03:00",
+        endTime: "2026-05-30T16:35:00+03:00",
       },
     ])
   })
