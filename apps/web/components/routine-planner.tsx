@@ -5,6 +5,7 @@ import {
   CalendarCheckIcon,
   ClockIcon,
   ListChecksIcon,
+  MapPinIcon,
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -15,6 +16,11 @@ import {
 
 import { buildWeekPreview } from "@/lib/preview"
 import { buildLiveWeekPreview } from "@/lib/live-preview"
+import {
+  floatingPlannerActions,
+  routinePlannerTabs,
+  userFacingSettingsCopy,
+} from "@/lib/routine-planner-surface"
 import {
   applyTemplateEditorDraft,
   deleteTemplateById,
@@ -107,6 +113,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 
 type RoutinePlannerProps = {
   initialStartDate: string
@@ -121,6 +132,12 @@ type ExportState =
 type PrayerTimesState =
   | { status: "loading" }
   | { status: "ready"; source: string }
+  | { status: "error"; message: string }
+
+type LocationState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; message: string }
   | { status: "error"; message: string }
 
 type PrayerSettingsDraft = PrayerApiSettings & {
@@ -241,8 +258,9 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [startDate, setStartDate] = React.useState(initialStartDate)
   const [templates, setTemplates] = React.useState(defaultTaskTemplates)
   const [timeBlocks, setTimeBlocks] = React.useState(seedTimeBlocks)
-  const [prayerSettings, setPrayerSettings] =
-    React.useState(defaultPrayerSettings)
+  const [prayerSettings, setPrayerSettings] = React.useState(
+    defaultPrayerSettings
+  )
   const [prayerDays, setPrayerDays] = React.useState<PrayerDay[]>([])
   const [prayerTimesState, setPrayerTimesState] =
     React.useState<PrayerTimesState>({ status: "loading" })
@@ -257,6 +275,10 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
     includeInCalendar: true,
   })
   const [exportState, setExportState] = React.useState<ExportState>({
+    status: "idle",
+  })
+  const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const [locationState, setLocationState] = React.useState<LocationState>({
     status: "idle",
   })
   const [editingDraft, setEditingDraft] =
@@ -708,7 +730,49 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
 
   function resetPrayerSettings() {
     setPrayerSettings(defaultPrayerSettings)
+    setLocationState({ status: "idle" })
     setExportState({ status: "idle" })
+  }
+
+  function useCurrentLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationState({
+        status: "error",
+        message: userFacingSettingsCopy.locationUnavailable,
+      })
+      return
+    }
+
+    setLocationState({
+      status: "loading",
+    })
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        updatePrayerSettings({
+          latitude: roundCoordinate(position.coords.latitude),
+          longitude: roundCoordinate(position.coords.longitude),
+        })
+        setLocationState({
+          status: "ready",
+          message: userFacingSettingsCopy.locationReady,
+        })
+      },
+      (error) => {
+        setLocationState({
+          status: "error",
+          message:
+            error.code === error.PERMISSION_DENIED
+              ? userFacingSettingsCopy.locationDenied
+              : userFacingSettingsCopy.locationFailed,
+        })
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 60 * 60 * 1000,
+        timeout: 10000,
+      }
+    )
   }
 
   async function fillCalendar() {
@@ -741,7 +805,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
         setExportState({
           status: "ready",
           configured: false,
-          message: `تم تجهيز ${body.events?.length ?? visibleEvents.length} أحداث. أضف إعدادات Google Calendar لتفعيل الإرسال الحقيقي.`,
+          message: `تم تجهيز ${body.events?.length ?? visibleEvents.length} أحداث للمعاينة. ربط Google Calendar غير مفعل لهذا التشغيل.`,
         })
         return
       }
@@ -789,11 +853,12 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
         </header>
 
         <Tabs defaultValue="preview" className="flex flex-col gap-4">
-          <TabsList className="grid w-full grid-cols-4 md:w-fit">
-            <TabsTrigger value="preview">الأسبوع</TabsTrigger>
-            <TabsTrigger value="routine">الروتين</TabsTrigger>
-            <TabsTrigger value="calendar">التقويم</TabsTrigger>
-            <TabsTrigger value="settings">الإعدادات</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:w-fit">
+            {routinePlannerTabs.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value}>
+                {tab.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <TabsContent value="preview" className="m-0">
@@ -905,7 +970,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                       <CardHeader>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex min-w-0 flex-col gap-2">
-                            <CardTitle className="break-words text-base">
+                            <CardTitle className="text-base break-words">
                               {block.nameAr}
                             </CardTitle>
                             <CardDescription>
@@ -933,9 +998,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                           />
                           {colorLabel(block.color)}
                         </Badge>
-                        <Badge variant="outline">
-                          ترتيب {block.sortOrder}
-                        </Badge>
+                        <Badge variant="outline">ترتيب {block.sortOrder}</Badge>
                       </CardContent>
                     </Card>
                   ))}
@@ -944,610 +1007,322 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
 
               <Separator />
 
-            <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PlusIcon data-icon="inline-start" />
-                    مهمة جديدة
-                  </CardTitle>
-                  <CardDescription>
-                    أضف مهمة داخل إحدى فترات الصلاة مع مدتها وتكرارها.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FieldGroup>
-                    <Field>
-                      <FieldLabel htmlFor="template-title">
-                        اسم الروتين
-                      </FieldLabel>
-                      <Input
-                        id="template-title"
-                        value={draft.title}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            title: event.target.value,
-                          }))
-                        }
-                        placeholder="مثلا: ورد قرآن"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>بلوك الصلاة</FieldLabel>
-                      <Select
-                        value={draft.timeBlockId}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            timeBlockId: value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {timeBlocks.map((block) => (
-                              <SelectItem key={block.id} value={block.id}>
-                                {block.nameAr}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel>التصنيف</FieldLabel>
-                      <Select
-                        value={draft.categoryId}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            categoryId: value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {seedCategories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.nameAr}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="duration">المدة بالدقائق</FieldLabel>
-                      <Input
-                        id="duration"
-                        type="number"
-                        min={5}
-                        max={240}
-                        value={draft.duration}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            duration: Number(event.target.value),
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>التكرار</FieldLabel>
-                      <Select
-                        value={draft.repeatType}
-                        onValueChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            repeatType: value as RepeatType,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value="daily">يومي</SelectItem>
-                            <SelectItem value="selected_days">
-                              أيام محددة
-                            </SelectItem>
-                            <SelectItem value="none">مرة واحدة</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    {draft.repeatType === "selected_days" && (
-                      <FieldSet>
-                        <FieldLegend>الأيام</FieldLegend>
-                        <div className="grid grid-cols-2 gap-2">
-                          {weekdayOptions.map((day) => (
-                            <Field key={day.value} orientation="horizontal">
-                              <Checkbox
-                                checked={draft.repeatDays.includes(day.value)}
-                                onCheckedChange={() =>
-                                  toggleDraftDay(day.value)
-                                }
-                              />
-                              <FieldLabel>{day.label}</FieldLabel>
-                            </Field>
-                          ))}
-                        </div>
-                      </FieldSet>
-                    )}
-                    <Field>
-                      <FieldLabel htmlFor="notes">ملاحظات</FieldLabel>
-                      <Textarea
-                        id="notes"
-                        value={draft.notes}
-                        onChange={(event) =>
-                          setDraft((current) => ({
-                            ...current,
-                            notes: event.target.value,
-                          }))
-                        }
-                        placeholder="أي تفاصيل تظهر داخل وصف حدث التقويم"
-                      />
-                    </Field>
-                    <Field orientation="horizontal">
-                      <Switch
-                        checked={draft.includeInCalendar}
-                        onCheckedChange={(checked) =>
-                          setDraft((current) => ({
-                            ...current,
-                            includeInCalendar: checked,
-                          }))
-                        }
-                      />
-                      <FieldContent>
-                        <FieldTitle>إدراجه في Google Calendar</FieldTitle>
-                        <FieldDescription>
-                          يمكن إبقاء بعض المهام في التخطيط فقط.
-                        </FieldDescription>
-                      </FieldContent>
-                    </Field>
-                  </FieldGroup>
-                </CardContent>
-                <CardFooter>
-                  <div className="flex w-full flex-col gap-2">
-                    <Button
-                      type="button"
-                      className="w-full"
-                      onClick={addTemplate}
-                    >
+              <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
                       <PlusIcon data-icon="inline-start" />
-                      إضافة المهمة
-                    </Button>
-                    <Button
-                      type="button"
-                      className="w-full"
-                      variant="outline"
-                      onClick={loadExampleTemplates}
-                    >
-                      <RefreshCwIcon data-icon="inline-start" />
-                      تحميل مثال جاهز
-                    </Button>
-                    <Button
-                      type="button"
-                      className="w-full"
-                      variant="ghost"
-                      onClick={clearTemplates}
-                    >
-                      <Trash2Icon data-icon="inline-start" />
-                      مسح كل المهام
-                    </Button>
-                  </div>
-                </CardFooter>
-              </Card>
-
-              {templates.length === 0 ? (
-                <Alert>
-                  <ListChecksIcon />
-                  <AlertTitle>ابدأ بمهامك أنت</AlertTitle>
-                  <AlertDescription>
-                    فترات الصلاة جاهزة من أوقات الصلاة، لكن لا توجد مهام
-                    داخلها بعد. أضف مهمة جديدة أو حمل مثالا جاهزا للتجربة.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {templates.map((template) => (
-                  <Card key={template.id}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 flex-col gap-2">
-                          <CardTitle className="break-words text-base">
-                            {template.title}
-                          </CardTitle>
-                          <CardDescription>
-                            {repeatLabel(
-                              template.repeatType,
-                              template.repeatDays
-                            )}
-                          </CardDescription>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => openTemplateEditor(template)}
-                          aria-label={`تعديل ${template.title}`}
-                        >
-                          <PencilIcon />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary">
-                          {blockLabel(template.defaultTimeBlockId, timeBlocks)}
-                        </Badge>
-                        <Badge variant="outline">
-                          {durationLabel(template)}
-                        </Badge>
-                      </div>
-                      {template.notes && (
-                        <p className="text-sm leading-6 text-muted-foreground">
-                          {template.notes}
-                        </p>
-                      )}
-                      {template.checklist.length > 0 && (
-                        <ul className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
-                          {template.checklist.map((item) => (
-                            <li key={item}>- {item}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </CardContent>
-                    <CardFooter className="justify-between">
-                      <Field orientation="horizontal" className="w-fit">
-                        <Switch
-                          checked={template.isActive}
-                          onCheckedChange={() => toggleTemplate(template.id)}
+                      مهمة جديدة
+                    </CardTitle>
+                    <CardDescription>
+                      أضف مهمة داخل إحدى فترات الصلاة مع مدتها وتكرارها.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <FieldGroup>
+                      <Field>
+                        <FieldLabel htmlFor="template-title">
+                          اسم الروتين
+                        </FieldLabel>
+                        <Input
+                          id="template-title"
+                          value={draft.title}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
+                          }
+                          placeholder="مثلا: ورد قرآن"
                         />
-                        <FieldLabel>نشط</FieldLabel>
                       </Field>
-                      <Badge
-                        variant={
-                          template.includeInCalendar ? "default" : "outline"
-                        }
+                      <Field>
+                        <FieldLabel>بلوك الصلاة</FieldLabel>
+                        <Select
+                          value={draft.timeBlockId}
+                          onValueChange={(value) =>
+                            setDraft((current) => ({
+                              ...current,
+                              timeBlockId: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {timeBlocks.map((block) => (
+                                <SelectItem key={block.id} value={block.id}>
+                                  {block.nameAr}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel>التصنيف</FieldLabel>
+                        <Select
+                          value={draft.categoryId}
+                          onValueChange={(value) =>
+                            setDraft((current) => ({
+                              ...current,
+                              categoryId: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {seedCategories.map((category) => (
+                                <SelectItem
+                                  key={category.id}
+                                  value={category.id}
+                                >
+                                  {category.nameAr}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="duration">
+                          المدة بالدقائق
+                        </FieldLabel>
+                        <Input
+                          id="duration"
+                          type="number"
+                          min={5}
+                          max={240}
+                          value={draft.duration}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              duration: Number(event.target.value),
+                            }))
+                          }
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel>التكرار</FieldLabel>
+                        <Select
+                          value={draft.repeatType}
+                          onValueChange={(value) =>
+                            setDraft((current) => ({
+                              ...current,
+                              repeatType: value as RepeatType,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectItem value="daily">يومي</SelectItem>
+                              <SelectItem value="selected_days">
+                                أيام محددة
+                              </SelectItem>
+                              <SelectItem value="none">مرة واحدة</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      {draft.repeatType === "selected_days" && (
+                        <FieldSet>
+                          <FieldLegend>الأيام</FieldLegend>
+                          <div className="grid grid-cols-2 gap-2">
+                            {weekdayOptions.map((day) => (
+                              <Field key={day.value} orientation="horizontal">
+                                <Checkbox
+                                  checked={draft.repeatDays.includes(day.value)}
+                                  onCheckedChange={() =>
+                                    toggleDraftDay(day.value)
+                                  }
+                                />
+                                <FieldLabel>{day.label}</FieldLabel>
+                              </Field>
+                            ))}
+                          </div>
+                        </FieldSet>
+                      )}
+                      <Field>
+                        <FieldLabel htmlFor="notes">ملاحظات</FieldLabel>
+                        <Textarea
+                          id="notes"
+                          value={draft.notes}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              notes: event.target.value,
+                            }))
+                          }
+                          placeholder="أي تفاصيل تظهر داخل وصف حدث التقويم"
+                        />
+                      </Field>
+                      <Field orientation="horizontal">
+                        <Switch
+                          checked={draft.includeInCalendar}
+                          onCheckedChange={(checked) =>
+                            setDraft((current) => ({
+                              ...current,
+                              includeInCalendar: checked,
+                            }))
+                          }
+                        />
+                        <FieldContent>
+                          <FieldTitle>إدراجه في Google Calendar</FieldTitle>
+                          <FieldDescription>
+                            يمكن إبقاء بعض المهام في التخطيط فقط.
+                          </FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    </FieldGroup>
+                  </CardContent>
+                  <CardFooter>
+                    <div className="flex w-full flex-col gap-2">
+                      <Button
+                        type="button"
+                        className="w-full"
+                        onClick={addTemplate}
                       >
-                        {template.includeInCalendar ? "للتقويم" : "تخطيط فقط"}
-                      </Badge>
-                    </CardFooter>
-                  </Card>
-                  ))}
-                </div>
-              )}
-            </section>
+                        <PlusIcon data-icon="inline-start" />
+                        إضافة المهمة
+                      </Button>
+                      <Button
+                        type="button"
+                        className="w-full"
+                        variant="outline"
+                        onClick={loadExampleTemplates}
+                      >
+                        <RefreshCwIcon data-icon="inline-start" />
+                        تحميل مثال جاهز
+                      </Button>
+                      <Button
+                        type="button"
+                        className="w-full"
+                        variant="ghost"
+                        onClick={clearTemplates}
+                      >
+                        <Trash2Icon data-icon="inline-start" />
+                        مسح كل المهام
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+
+                {templates.length === 0 ? (
+                  <Alert>
+                    <ListChecksIcon />
+                    <AlertTitle>ابدأ بمهامك أنت</AlertTitle>
+                    <AlertDescription>
+                      فترات الصلاة جاهزة من أوقات الصلاة، لكن لا توجد مهام
+                      داخلها بعد. أضف مهمة جديدة أو حمل مثالا جاهزا للتجربة.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {templates.map((template) => (
+                      <Card key={template.id}>
+                        <CardHeader>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 flex-col gap-2">
+                              <CardTitle className="text-base break-words">
+                                {template.title}
+                              </CardTitle>
+                              <CardDescription>
+                                {repeatLabel(
+                                  template.repeatType,
+                                  template.repeatDays
+                                )}
+                              </CardDescription>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => openTemplateEditor(template)}
+                              aria-label={`تعديل ${template.title}`}
+                            >
+                              <PencilIcon />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="secondary">
+                              {blockLabel(
+                                template.defaultTimeBlockId,
+                                timeBlocks
+                              )}
+                            </Badge>
+                            <Badge variant="outline">
+                              {durationLabel(template)}
+                            </Badge>
+                          </div>
+                          {template.notes && (
+                            <p className="text-sm leading-6 text-muted-foreground">
+                              {template.notes}
+                            </p>
+                          )}
+                          {template.checklist.length > 0 && (
+                            <ul className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
+                              {template.checklist.map((item) => (
+                                <li key={item}>- {item}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </CardContent>
+                        <CardFooter className="justify-between">
+                          <Field orientation="horizontal" className="w-fit">
+                            <Switch
+                              checked={template.isActive}
+                              onCheckedChange={() =>
+                                toggleTemplate(template.id)
+                              }
+                            />
+                            <FieldLabel>نشط</FieldLabel>
+                          </Field>
+                          <Badge
+                            variant={
+                              template.includeInCalendar ? "default" : "outline"
+                            }
+                          >
+                            {template.includeInCalendar
+                              ? "للتقويم"
+                              : "تخطيط فقط"}
+                          </Badge>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           </TabsContent>
-
-          <TabsContent value="calendar" className="m-0">
-            <section className="grid gap-4 lg:grid-cols-[420px_1fr]">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CalendarCheckIcon data-icon="inline-start" />
-                    تعبئة Google Calendar
-                  </CardTitle>
-                  <CardDescription>
-                    يرسل التطبيق حدثا واحدا لكل بلوك صلاة يحتوي على مهام.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  <Alert>
-                    <ListChecksIcon />
-                    <AlertTitle>طريقة التصدير</AlertTitle>
-                    <AlertDescription>
-                      كل حدث يحمل معرفا داخليا وهاش للمحتوى، لذلك الضغط المتكرر
-                      يحدث الموجود ولا يكرر الأسبوع.
-                    </AlertDescription>
-                  </Alert>
-                  {exportState.status === "ready" && (
-                    <Alert>
-                      <CalendarCheckIcon />
-                      <AlertTitle>
-                        {exportState.configured ? "تم الإرسال" : "جاهز للإرسال"}
-                      </AlertTitle>
-                      <AlertDescription>{exportState.message}</AlertDescription>
-                    </Alert>
-                  )}
-                  {exportState.status === "error" && (
-                    <Alert variant="destructive">
-                      <AlertTitle>تنبيه</AlertTitle>
-                      <AlertDescription>{exportState.message}</AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    type="button"
-                    className="w-full"
-                    onClick={fillCalendar}
-                    disabled={
-                      exportState.status === "loading" || !hasPrayerApiTimes
-                    }
-                  >
-                    {exportState.status === "loading" ? (
-                      <RefreshCwIcon data-icon="inline-start" />
-                    ) : (
-                      <CalendarCheckIcon data-icon="inline-start" />
-                    )}
-                    Fill One Week
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                {visibleEvents.map((event) => (
-                  <Card key={event.localId}>
-                    <CardHeader>
-                      <CardTitle className="text-base">
-                        {event.summary}
-                      </CardTitle>
-                      <CardDescription>{event.date}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                      <p
-                        className="font-mono text-xs text-muted-foreground"
-                        dir="ltr"
-                      >
-                        {event.start} → {event.end}
-                      </p>
-                      <Separator />
-                      <p className="line-clamp-5 text-sm leading-6 whitespace-pre-line">
-                        {event.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="settings" className="m-0">
-            <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <SettingsIcon data-icon="inline-start" />
-                    إعدادات الصلاة
-                  </CardTitle>
-                  <CardDescription>
-                    غيّر موقعك وطريقة الحساب. المعاينة والتقويم يستخدمان هذه
-                    القيم مباشرة.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                  <FieldGroup>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="settings-country">
-                          الدولة
-                        </FieldLabel>
-                        <Input
-                          id="settings-country"
-                          value={prayerSettings.country}
-                          onChange={(event) =>
-                            updatePrayerSettings({
-                              country: event.target.value,
-                            })
-                          }
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="settings-city">
-                          المدينة
-                        </FieldLabel>
-                        <Input
-                          id="settings-city"
-                          value={prayerSettings.city}
-                          onChange={(event) =>
-                            updatePrayerSettings({ city: event.target.value })
-                          }
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="settings-latitude">
-                          خط العرض
-                        </FieldLabel>
-                        <Input
-                          id="settings-latitude"
-                          dir="ltr"
-                          type="number"
-                          min={-90}
-                          max={90}
-                          step="0.0001"
-                          value={prayerSettings.latitude}
-                          onChange={(event) =>
-                            updatePrayerSettingNumber(
-                              "latitude",
-                              event.target.value
-                            )
-                          }
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="settings-longitude">
-                          خط الطول
-                        </FieldLabel>
-                        <Input
-                          id="settings-longitude"
-                          dir="ltr"
-                          type="number"
-                          min={-180}
-                          max={180}
-                          step="0.0001"
-                          value={prayerSettings.longitude}
-                          onChange={(event) =>
-                            updatePrayerSettingNumber(
-                              "longitude",
-                              event.target.value
-                            )
-                          }
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <Field>
-                        <FieldLabel>طريقة الحساب</FieldLabel>
-                        <Select
-                          value={String(prayerSettings.method)}
-                          onValueChange={(value) =>
-                            updatePrayerSettingNumber("method", value)
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {prayerMethodOptions.map((method) => (
-                                <SelectItem
-                                  key={method.value}
-                                  value={method.value}
-                                >
-                                  {method.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-
-                      <Field>
-                        <FieldLabel>مذهب العصر</FieldLabel>
-                        <Select
-                          value={String(prayerSettings.school)}
-                          onValueChange={(value) =>
-                            updatePrayerSettings({
-                              school: Number(value) as PrayerApiSettings["school"],
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {asrSchoolOptions.map((school) => (
-                                <SelectItem
-                                  key={school.value}
-                                  value={school.value}
-                                >
-                                  {school.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-
-                      <Field>
-                        <FieldLabel>المنطقة الزمنية</FieldLabel>
-                        <Select
-                          value={prayerSettings.timezone}
-                          onValueChange={(timezone) =>
-                            updatePrayerSettings({ timezone })
-                          }
-                        >
-                          <SelectTrigger className="w-full" dir="ltr">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {timezoneOptions.map((timezone) => (
-                                <SelectItem key={timezone} value={timezone}>
-                                  {timezone}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    </div>
-                  </FieldGroup>
-
-                  <Alert>
-                    <ClockIcon />
-                    <AlertTitle>مصدر الأوقات: AlAdhan API</AlertTitle>
-                    <AlertDescription>
-                      اسم الدولة والمدينة للتنظيم فقط حاليا؛ الحساب يعتمد على
-                      الإحداثيات وطريقة الحساب ومذهب العصر والمنطقة الزمنية.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-                <CardFooter className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <Badge variant="secondary">محفوظ محليا</Badge>
-                    <Badge variant="outline" dir="ltr">
-                      {prayerSettings.latitude}, {prayerSettings.longitude}
-                    </Badge>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={resetPrayerSettings}
-                  >
-                    <RefreshCwIcon data-icon="inline-start" />
-                    استعادة إعدادات الرياض
-                  </Button>
-                </CardFooter>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CalendarCheckIcon data-icon="inline-start" />
-                    إعدادات Google Calendar
-                  </CardTitle>
-                  <CardDescription>
-                    الربط الحقيقي يتم من متغيرات البيئة في السيرفر فقط.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4 text-sm leading-6">
-                  <ConfigRow
-                    label="ملف حساب الخدمة"
-                    value="GOOGLE_SERVICE_ACCOUNT_FILE"
-                  />
-                  <ConfigRow
-                    label="أو JSON حساب الخدمة"
-                    value="GOOGLE_SERVICE_ACCOUNT_JSON"
-                  />
-                  <ConfigRow
-                    label="معرف التقويم"
-                    value="GOOGLE_CALENDAR_ID"
-                  />
-                  <Separator />
-                  <p className="text-muted-foreground">
-                    شارك التقويم مع بريد Service Account بصلاحية تعديل
-                    الأحداث. معرف التقويم هو Calendar ID من قسم Integrate
-                    calendar، وليس Unique ID أو Client ID لحساب الخدمة.
-                  </p>
-                  <Alert>
-                    <ListChecksIcon />
-                    <AlertTitle>لا تضع المفاتيح في المتصفح</AlertTitle>
-                    <AlertDescription>
-                      مفاتيح Google الخاصة تبقى في متغيرات السيرفر. مفاتيح
-                      Supabase العامة فقط يمكن أن تبدأ بـ NEXT_PUBLIC.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-            </section>
-          </TabsContent>
         </Tabs>
+
+        <CalendarExportStatus state={exportState} />
+        <FloatingPlannerActions
+          exportState={exportState}
+          hasPrayerApiTimes={hasPrayerApiTimes}
+          onFillCalendar={fillCalendar}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        <PrayerSettingsDialog
+          locationState={locationState}
+          onNumberChange={updatePrayerSettingNumber}
+          onOpenChange={setSettingsOpen}
+          onReset={resetPrayerSettings}
+          onSettingsChange={updatePrayerSettings}
+          onUseCurrentLocation={useCurrentLocation}
+          open={settingsOpen}
+          prayerSettings={prayerSettings}
+        />
 
         <TemplateEditorDialog
           draft={editingDraft}
@@ -1580,6 +1355,341 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
         />
       </div>
     </main>
+  )
+}
+
+function CalendarExportStatus({ state }: { state: ExportState }) {
+  if (state.status === "idle") {
+    return null
+  }
+
+  const isError = state.status === "error"
+  const title =
+    state.status === "loading"
+      ? "جاري تعبئة التقويم"
+      : state.status === "ready" && state.configured
+        ? "تم إرسال الأسبوع"
+        : state.status === "ready"
+          ? "جاهز للتقويم"
+          : "تعذر تعبئة التقويم"
+  const message =
+    state.status === "loading"
+      ? "نجهز أحداث الأسبوع الآن."
+      : state.status === "error"
+        ? state.message
+        : state.message
+
+  return (
+    <div className="fixed right-4 bottom-36 z-50 w-[min(24rem,calc(100vw-2rem))] sm:right-6">
+      <Alert
+        variant={isError ? "destructive" : "default"}
+        className="bg-card/95 shadow-lg backdrop-blur"
+      >
+        {state.status === "loading" ? (
+          <RefreshCwIcon className="animate-spin" />
+        ) : (
+          <CalendarCheckIcon />
+        )}
+        <AlertTitle>{title}</AlertTitle>
+        <AlertDescription>{message}</AlertDescription>
+      </Alert>
+    </div>
+  )
+}
+
+function FloatingPlannerActions({
+  exportState,
+  hasPrayerApiTimes,
+  onFillCalendar,
+  onOpenSettings,
+}: {
+  exportState: ExportState
+  hasPrayerApiTimes: boolean
+  onFillCalendar: () => void
+  onOpenSettings: () => void
+}) {
+  const calendarAction = floatingPlannerActions.find(
+    (action) => action.value === "calendar"
+  )
+  const settingsAction = floatingPlannerActions.find(
+    (action) => action.value === "settings"
+  )
+
+  if (!calendarAction || !settingsAction) {
+    return null
+  }
+
+  return (
+    <div className="fixed right-4 bottom-4 z-50 flex flex-col gap-2 sm:right-6 sm:bottom-6">
+      <FloatingActionButton
+        label={calendarAction.label}
+        onClick={onFillCalendar}
+        disabled={exportState.status === "loading" || !hasPrayerApiTimes}
+        variant="default"
+      >
+        {exportState.status === "loading" ? (
+          <RefreshCwIcon className="animate-spin" />
+        ) : (
+          <CalendarCheckIcon />
+        )}
+      </FloatingActionButton>
+      <FloatingActionButton
+        label={settingsAction.label}
+        onClick={onOpenSettings}
+        variant="secondary"
+      >
+        <SettingsIcon />
+      </FloatingActionButton>
+    </div>
+  )
+}
+
+function FloatingActionButton({
+  children,
+  disabled,
+  label,
+  onClick,
+  variant,
+}: {
+  children: React.ReactNode
+  disabled?: boolean
+  label: string
+  onClick: () => void
+  variant: "default" | "secondary"
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          aria-label={label}
+          title={label}
+          size="icon-lg"
+          variant={variant}
+          disabled={disabled}
+          onClick={onClick}
+          className="size-12 rounded-full shadow-lg"
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="left">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function PrayerSettingsDialog({
+  locationState,
+  onNumberChange,
+  onOpenChange,
+  onReset,
+  onSettingsChange,
+  onUseCurrentLocation,
+  open,
+  prayerSettings,
+}: {
+  locationState: LocationState
+  onNumberChange: (
+    field: "latitude" | "longitude" | "method",
+    value: string
+  ) => void
+  onOpenChange: (open: boolean) => void
+  onReset: () => void
+  onSettingsChange: (patch: Partial<PrayerSettingsDraft>) => void
+  onUseCurrentLocation: () => void
+  open: boolean
+  prayerSettings: PrayerSettingsDraft
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b px-6 py-5 text-start">
+          <DialogTitle className="flex items-center gap-2">
+            <SettingsIcon data-icon="inline-start" />
+            {userFacingSettingsCopy.title}
+          </DialogTitle>
+          <DialogDescription>
+            {userFacingSettingsCopy.description}
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="max-h-[calc(100svh-13rem)]">
+          <div className="flex flex-col gap-5 px-6 py-5">
+            <FieldGroup>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="settings-country">الدولة</FieldLabel>
+                  <Input
+                    id="settings-country"
+                    value={prayerSettings.country}
+                    onChange={(event) =>
+                      onSettingsChange({ country: event.target.value })
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="settings-city">المدينة</FieldLabel>
+                  <Input
+                    id="settings-city"
+                    value={prayerSettings.city}
+                    onChange={(event) =>
+                      onSettingsChange({ city: event.target.value })
+                    }
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="settings-latitude">خط العرض</FieldLabel>
+                  <Input
+                    id="settings-latitude"
+                    dir="ltr"
+                    type="number"
+                    min={-90}
+                    max={90}
+                    step="0.0001"
+                    value={prayerSettings.latitude}
+                    onChange={(event) =>
+                      onNumberChange("latitude", event.target.value)
+                    }
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="settings-longitude">خط الطول</FieldLabel>
+                  <Input
+                    id="settings-longitude"
+                    dir="ltr"
+                    type="number"
+                    min={-180}
+                    max={180}
+                    step="0.0001"
+                    value={prayerSettings.longitude}
+                    onChange={(event) =>
+                      onNumberChange("longitude", event.target.value)
+                    }
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field>
+                  <FieldLabel>طريقة الحساب</FieldLabel>
+                  <Select
+                    value={String(prayerSettings.method)}
+                    onValueChange={(value) => onNumberChange("method", value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {prayerMethodOptions.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field>
+                  <FieldLabel>مذهب العصر</FieldLabel>
+                  <Select
+                    value={String(prayerSettings.school)}
+                    onValueChange={(value) =>
+                      onSettingsChange({
+                        school: Number(value) as PrayerApiSettings["school"],
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {asrSchoolOptions.map((school) => (
+                          <SelectItem key={school.value} value={school.value}>
+                            {school.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field>
+                  <FieldLabel>المنطقة الزمنية</FieldLabel>
+                  <Select
+                    value={prayerSettings.timezone}
+                    onValueChange={(timezone) => onSettingsChange({ timezone })}
+                  >
+                    <SelectTrigger className="w-full" dir="ltr">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {timezoneOptions.map((timezone) => (
+                          <SelectItem key={timezone} value={timezone}>
+                            {timezone}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+            </FieldGroup>
+
+            {locationState.status !== "idle" && (
+              <Alert
+                variant={
+                  locationState.status === "error" ? "destructive" : "default"
+                }
+              >
+                {locationState.status === "loading" ? (
+                  <RefreshCwIcon className="animate-spin" />
+                ) : (
+                  <MapPinIcon />
+                )}
+                <AlertTitle>
+                  {locationState.status === "loading"
+                    ? userFacingSettingsCopy.locationLoading
+                    : locationState.status === "ready"
+                      ? "تم تحديث الموقع"
+                      : "تعذر تحديث الموقع"}
+                </AlertTitle>
+                {locationState.status !== "loading" && (
+                  <AlertDescription>{locationState.message}</AlertDescription>
+                )}
+              </Alert>
+            )}
+          </div>
+        </ScrollArea>
+        <DialogFooter className="flex-col gap-2 border-t px-6 py-4 sm:flex-row sm:justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onUseCurrentLocation}
+            disabled={locationState.status === "loading"}
+          >
+            {locationState.status === "loading" ? (
+              <RefreshCwIcon
+                data-icon="inline-start"
+                className="animate-spin"
+              />
+            ) : (
+              <MapPinIcon data-icon="inline-start" />
+            )}
+            {userFacingSettingsCopy.useCurrentLocation}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onReset}>
+            <RefreshCwIcon data-icon="inline-start" />
+            {userFacingSettingsCopy.resetRiyadh}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -2092,9 +2202,7 @@ function TemplateEditorDialog({
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="edit-template-end">
-                      النهاية
-                    </FieldLabel>
+                    <FieldLabel htmlFor="edit-template-end">النهاية</FieldLabel>
                     <Input
                       id="edit-template-end"
                       type="date"
@@ -2125,9 +2233,7 @@ function TemplateEditorDialog({
                 )}
 
                 <Field>
-                  <FieldLabel htmlFor="edit-template-notes">
-                    ملاحظات
-                  </FieldLabel>
+                  <FieldLabel htmlFor="edit-template-notes">ملاحظات</FieldLabel>
                   <Textarea
                     id="edit-template-notes"
                     value={draft.notes}
@@ -2259,62 +2365,50 @@ function DayPreview({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {day.blocks.map((block) => (
-            <div key={block.timeBlockId} className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-medium">{block.nameAr}</h3>
-                <Badge variant="outline" dir="ltr">
-                  {block.startTime.slice(11, 16)}-{block.endTime.slice(11, 16)}
-                </Badge>
-              </div>
-              <div className="flex flex-col gap-2">
-                {block.occurrences.length === 0 && (
-                  <div className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
-                    لا توجد مهام داخل هذه الفترة.
-                  </div>
-                )}
-                {block.occurrences.map((occurrence) => (
-                  <div
-                    key={occurrence.id}
-                    className="rounded-lg border bg-muted/40 px-3 py-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">
-                        {occurrence.title}
-                      </span>
-                      <span
-                        className="font-mono text-xs text-muted-foreground"
-                        dir="ltr"
-                      >
-                        {occurrence.startTime?.slice(11, 16)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <div key={block.timeBlockId} className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium">{block.nameAr}</h3>
+              <Badge variant="outline" dir="ltr">
+                {block.startTime.slice(11, 16)}-{block.endTime.slice(11, 16)}
+              </Badge>
             </div>
-          ))}
+            <div className="flex flex-col gap-2">
+              {block.occurrences.length === 0 && (
+                <div className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                  لا توجد مهام داخل هذه الفترة.
+                </div>
+              )}
+              {block.occurrences.map((occurrence) => (
+                <div
+                  key={occurrence.id}
+                  className="rounded-lg border bg-muted/40 px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">
+                      {occurrence.title}
+                    </span>
+                    <span
+                      className="font-mono text-xs text-muted-foreground"
+                      dir="ltr"
+                    >
+                      {occurrence.startTime?.slice(11, 16)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </CardContent>
     </Card>
   )
 }
 
-function ConfigRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <code
-        className="break-all rounded-md bg-muted px-2 py-1 font-mono text-xs text-muted-foreground"
-        dir="ltr"
-      >
-        {value}
-      </code>
-    </div>
-  )
+function roundCoordinate(value: number) {
+  return Math.round(value * 100000) / 100000
 }
 
-function toPrayerApiSettings(
-  settings: PrayerSettingsDraft
-): PrayerApiSettings {
+function toPrayerApiSettings(settings: PrayerSettingsDraft): PrayerApiSettings {
   return {
     latitude: settings.latitude,
     longitude: settings.longitude,
@@ -2442,11 +2536,16 @@ function sourceLabel(source: TimeBlock["startSource"], fixedTime?: string) {
     return fixedTime ?? "00:00"
   }
 
-  return blockSourceOptions.find((option) => option.value === source)?.label ?? source
+  return (
+    blockSourceOptions.find((option) => option.value === source)?.label ??
+    source
+  )
 }
 
 function colorLabel(color: string) {
-  return blockColorOptions.find((option) => option.value === color)?.label ?? color
+  return (
+    blockColorOptions.find((option) => option.value === color)?.label ?? color
+  )
 }
 
 function colorSwatch(color: string) {
