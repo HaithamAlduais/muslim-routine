@@ -32,8 +32,8 @@ describe("buildWeekPreview", () => {
       "لعب",
       "صلاة العشاء",
       "عشاء مع العائلة",
-      "الأصدقاء + الأسرة + العائلة",
-      "الأصدقاء + الأسرة + العائلة",
+      "الأسرة",
+      "الأصدقاء",
       "نوم",
     ])
   })
@@ -65,8 +65,8 @@ describe("buildWeekPreview", () => {
       { title: "آخر ساعة", repeatDays: [5] },
       { title: "عربي", repeatDays: [1, 2, 3, 4, 5] },
       { title: "لعب", repeatDays: [5, 6] },
-      { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [4] },
-      { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [5] },
+      { title: "الأسرة", repeatDays: [4] },
+      { title: "الأصدقاء", repeatDays: [5] },
       { title: "نوم", repeatDays: [0, 1, 2, 3, 6] },
     ])
   })
@@ -348,6 +348,29 @@ describe("buildWeekPreview", () => {
       expect(titlesByDate.get(date)).not.toContain("عربي")
       expect(titlesByDate.get(date)).not.toContain("مهام")
     }
+  })
+
+  it("uses separate Thursday family and Friday friends labels after Isha", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-28",
+      days: 2,
+      templates: seedTaskTemplates,
+    })
+
+    const titlesForDate = (date: string) =>
+      preview
+        .find((day) => day.date === date)!
+        .blocks.find((block) => block.timeBlockId === "isha_to_sleep")!
+        .occurrences.map((occurrence) => occurrence.title)
+
+    expect(titlesForDate("2026-05-28")).toContain("الأسرة")
+    expect(titlesForDate("2026-05-28")).not.toContain(
+      "الأصدقاء + الأسرة + العائلة"
+    )
+    expect(titlesForDate("2026-05-29")).toContain("الأصدقاء")
+    expect(titlesForDate("2026-05-29")).not.toContain(
+      "الأصدقاء + الأسرة + العائلة"
+    )
   })
 
   it("surfaces the Friday Maghrib overflow caused by 40-minute prayers", () => {

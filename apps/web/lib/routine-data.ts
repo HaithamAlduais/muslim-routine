@@ -520,7 +520,7 @@ export const seedTaskTemplates: TaskTemplate[] = [
   }),
   taskTemplate({
     id: "friends-family-first",
-    title: "الأصدقاء + الأسرة + العائلة",
+    title: "الأسرة",
     categoryId: "family",
     defaultTimeBlockId: "isha_to_sleep",
     defaultDurationMinutes: 35,
@@ -535,7 +535,7 @@ export const seedTaskTemplates: TaskTemplate[] = [
   }),
   taskTemplate({
     id: "friends-family-second",
-    title: "الأصدقاء + الأسرة + العائلة",
+    title: "الأصدقاء",
     categoryId: "family",
     defaultTimeBlockId: "isha_to_sleep",
     defaultDurationMinutes: 35,
