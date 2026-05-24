@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildCalendarBlockEvents } from "./calendar"
+import { buildWeekPreview } from "./preview"
 import type { PackedDay } from "./types"
 
 const packedDay: PackedDay = {
@@ -99,5 +100,24 @@ describe("buildCalendarBlockEvents", () => {
     const second = await buildCalendarBlockEvents([changed])
 
     expect(first[0]!.payloadHash).not.toBe(second[0]!.payloadHash)
+  })
+
+  it("includes Notion page checklist contents in Google Calendar descriptions", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-24",
+      days: 7,
+    })
+    const descriptions = buildCalendarBlockEvents(preview)
+      .map((event) => event.description)
+      .join("\n")
+
+    expect(descriptions).toContain("قبل الصلاة: ½حزب سنة")
+    expect(descriptions).toContain("بعد الصلاة: لا إله إلا الله 100 مرة")
+    expect(descriptions).toContain("قراءة / كتابة")
+    expect(descriptions).toContain("½حزب ضحى")
+    expect(descriptions).toContain("سورة الكهف")
+    expect(descriptions).toContain("صدقة/صلاة ميت")
+    expect(descriptions).toContain("تمر ولبن وبروتين")
+    expect(descriptions).toContain("سبحان الله وبحمده 100 مرة")
   })
 })

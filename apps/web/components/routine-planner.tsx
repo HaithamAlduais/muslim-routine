@@ -517,6 +517,13 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                           {template.notes}
                         </p>
                       )}
+                      {template.checklist.length > 0 && (
+                        <ul className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
+                          {template.checklist.map((item) => (
+                            <li key={item}>- {item}</li>
+                          ))}
+                        </ul>
+                      )}
                     </CardContent>
                     <CardFooter className="justify-between">
                       <Field orientation="horizontal" className="w-fit">
