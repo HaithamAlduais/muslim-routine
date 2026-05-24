@@ -34,21 +34,20 @@ describe("buildWeekPreview", () => {
     ])
   })
 
-  it("uses Notion repeat settings so all 23 templates repeat daily", () => {
+  it("keeps 23 templates while preserving selected-day repeat rules", () => {
     expect(seedTaskTemplates).toHaveLength(23)
+
     expect(
-      seedTaskTemplates.map((template) => ({
-        title: template.title,
-        repeatType: template.repeatType,
-        repeatDays: template.repeatDays,
-      }))
-    ).toEqual(
-      seedTaskTemplates.map((template) => ({
-        title: template.title,
-        repeatType: "daily",
-        repeatDays: [],
-      }))
-    )
+      seedTaskTemplates
+        .filter((template) => template.repeatType === "selected_days")
+        .map((template) => ({
+          title: template.title,
+          repeatDays: template.repeatDays,
+        }))
+    ).toEqual([
+      { title: "سحور+استغفار", repeatDays: [1, 4] },
+      { title: "لعب", repeatDays: [5, 6] },
+    ])
   })
 
   it("builds a seven-day prayer-block preview from the seeded routine", () => {
@@ -70,7 +69,7 @@ describe("buildWeekPreview", () => {
     ).toContain("صلاة الفجر")
   })
 
-  it("generates all 23 Notion tasks on every day of the week", () => {
+  it("generates only the correct selected-day occurrences", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
@@ -81,17 +80,19 @@ describe("buildWeekPreview", () => {
       preview.map((day) =>
         day.blocks.reduce((total, block) => total + block.occurrences.length, 0)
       )
-    ).toEqual([23, 23, 23, 23, 23, 23, 23])
+    ).toEqual([21, 22, 21, 21, 22, 22, 22])
 
-    expect(
-      preview.map((day) =>
-        day.blocks.some((block) =>
-          block.occurrences.some(
-            (occurrence) => occurrence.title === "سحور+استغفار"
-          )
+    const datesForTitle = (title: string) =>
+      preview.flatMap((day) =>
+        day.blocks.flatMap((block) =>
+          block.occurrences
+            .filter((occurrence) => occurrence.title === title)
+            .map((occurrence) => occurrence.date)
         )
       )
-    ).toEqual([true, true, true, true, true, true, true])
+
+    expect(datesForTitle("سحور+استغفار")).toEqual(["2026-05-25", "2026-05-28"])
+    expect(datesForTitle("لعب")).toEqual(["2026-05-29", "2026-05-30"])
   })
 
   it("packs the Notion routine without scheduling conflicts", () => {
@@ -120,7 +121,6 @@ describe("buildWeekPreview", () => {
 
     expect(titlesByBlock.get("last_sixth_to_fajr")).toEqual([
       "قيام",
-      "سحور+استغفار",
       "إعداد+استغفار",
       "تطوير",
     ])
@@ -136,7 +136,6 @@ describe("buildWeekPreview", () => {
     expect(titlesByBlock.get("maghrib_to_isha")).toEqual([
       "صلاة المغرب",
       "عربي",
-      "لعب",
     ])
   })
 })
