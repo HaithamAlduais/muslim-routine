@@ -66,6 +66,7 @@ export function autoPackDay({
       timeBlockId: block.id,
       nameAr: block.nameAr,
       sortOrder: block.sortOrder,
+      color: block.color,
       startTime,
       endTime,
       occurrences: packedOccurrences,

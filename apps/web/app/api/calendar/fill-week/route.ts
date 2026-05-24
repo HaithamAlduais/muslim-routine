@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const { startDate, days, templates, settings } = body
+  const { startDate, days, templates, timeBlocks, settings } = body
   let prayerDays: PrayerDay[]
 
   try {
@@ -57,6 +57,7 @@ export async function POST(request: Request) {
     startDate,
     days,
     prayerDays,
+    timeBlocks,
     templates,
   })
   const events = await buildCalendarBlockEvents(preview)

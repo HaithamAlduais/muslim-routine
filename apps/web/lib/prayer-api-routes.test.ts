@@ -61,6 +61,48 @@ describe("prayer API routes", () => {
     ).toBe("2026-05-24T03:37:00+03:00")
   })
 
+  it("builds calendar events from edited routine blocks", async () => {
+    vi.stubGlobal("fetch", mockPrayerFetch())
+
+    const response = await fillWeek(
+      new Request("http://localhost/api/calendar/fill-week", {
+        method: "POST",
+        body: JSON.stringify({
+          startDate: "2026-05-24",
+          days: 1,
+          timeBlocks: [
+            {
+              id: "custom_morning",
+              nameAr: "صباح مخصص",
+              sortOrder: 10,
+              color: "violet",
+              startSource: "Fajr",
+              endSource: "fixed",
+              fixedEnd: "07:30",
+            },
+          ],
+          templates: [
+            {
+              ...exampleTaskTemplates[0],
+              defaultTimeBlockId: "custom_morning",
+            },
+          ],
+        }),
+      })
+    )
+    const body = (await response.json()) as {
+      events: Array<{ localId: string; summary: string; end: string }>
+    }
+
+    expect(response.status).toBe(200)
+    expect(body.events).toHaveLength(1)
+    expect(body.events[0]).toMatchObject({
+      localId: "2026-05-24:custom_morning",
+      summary: "صباح مخصص",
+      end: "2026-05-24T07:30:00+03:00",
+    })
+  })
+
   it("does not fill the calendar with fallback times when the prayer API fails", async () => {
     vi.stubGlobal(
       "fetch",

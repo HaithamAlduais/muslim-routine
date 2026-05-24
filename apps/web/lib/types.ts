@@ -104,6 +104,7 @@ export type PackedBlock = {
   timeBlockId: string
   nameAr: string
   sortOrder: number
+  color: string
   startTime: string
   endTime: string
   occurrences: TaskOccurrence[]

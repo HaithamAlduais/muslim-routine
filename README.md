@@ -6,6 +6,7 @@ Arabic-first routine planner that turns user-created prayer-time-group missions 
 
 - Provides fixed prayer-time groups such as `السدس الأخير من الليل / قبل الفجر` and `الفجر إلى الشروق`.
 - Calculates each group from prayer times, then lets each user add their own missions with durations inside the group.
+- Supports CRUD for routine time groups and task templates from the app UI.
 - Lets users adjust location, calculation method, Asr school, and timezone for prayer-time previews and calendar export.
 - Keeps reusable user task templates separate from generated occurrences.
 - Supports daily, weekly, selected-day, monthly, and custom repeats.

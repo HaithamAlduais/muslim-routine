@@ -10,6 +10,22 @@ const googleCalendarColorIdsByTimeBlock: Record<string, string> = {
   isha_to_sleep: "8",
 }
 
+const googleCalendarColorIdsByToken: Record<string, string> = {
+  lavender: "1",
+  sage: "2",
+  violet: "3",
+  rose: "4",
+  amber: "5",
+  orange: "6",
+  sky: "7",
+  slate: "8",
+  indigo: "9",
+  emerald: "10",
+  red: "11",
+  teal: "2",
+  zinc: "8",
+}
+
 export function buildCalendarBlockEvents(
   days: PackedDay[]
 ): CalendarBlockEvent[] {
@@ -28,7 +44,8 @@ export function buildCalendarBlockEvents(
         )
         const description = buildDescription(included)
         const googleCalendarColorId = googleCalendarColorIdForTimeBlock(
-          block.timeBlockId
+          block.timeBlockId,
+          block.color
         )
         const payload = {
           summary: block.nameAr,
@@ -53,8 +70,15 @@ export function buildCalendarBlockEvents(
   )
 }
 
-export function googleCalendarColorIdForTimeBlock(timeBlockId: string) {
-  return googleCalendarColorIdsByTimeBlock[timeBlockId] ?? "1"
+export function googleCalendarColorIdForTimeBlock(
+  timeBlockId: string,
+  color?: string
+) {
+  return (
+    (color ? googleCalendarColorIdsByToken[color] : undefined) ??
+    googleCalendarColorIdsByTimeBlock[timeBlockId] ??
+    "1"
+  )
 }
 
 function buildDescription(occurrences: TaskOccurrence[]) {

@@ -4,7 +4,13 @@ import {
   defaultPrayerApiSettings,
   type PrayerApiSettings,
 } from "./prayer-times"
-import type { Priority, RepeatType, ScheduleMode, TaskTemplate } from "./types"
+import type {
+  Priority,
+  RepeatType,
+  ScheduleMode,
+  TaskTemplate,
+  TimeBlock,
+} from "./types"
 
 export const MAX_PREVIEW_DAYS = 14
 
@@ -15,6 +21,7 @@ export type PreviewWindow = {
 
 export type FillWeekRequest = PreviewWindow & {
   templates?: TaskTemplate[]
+  timeBlocks?: TimeBlock[]
   settings?: PrayerApiSettings
 }
 
@@ -41,6 +48,29 @@ const scheduleModeSchema: z.ZodType<ScheduleMode> = z.enum([
   "fill_until_next_anchor",
   "anchor_to_block_end",
 ])
+const timeBlockSourceSchema = z.enum([
+  "Fajr",
+  "Sunrise",
+  "Dhuhr",
+  "Asr",
+  "Maghrib",
+  "Isha",
+  "fixed",
+  "custom",
+  "last_sixth",
+])
+const timeBlockSchema: z.ZodType<TimeBlock> = z
+  .object({
+    id: z.string().min(1).max(160),
+    nameAr: z.string().min(1).max(160),
+    sortOrder: z.number().int(),
+    color: z.string().min(1).max(80),
+    startSource: timeBlockSourceSchema,
+    endSource: timeBlockSourceSchema,
+    fixedStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    fixedEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  })
+  .strict()
 const taskTemplateSchema: z.ZodType<TaskTemplate> = z
   .object({
     id: z.string().min(1).max(160),
@@ -91,7 +121,9 @@ export function parseFillWeekRequestBody(body: unknown): FillWeekRequest {
   }
 
   const templatesValue = body.templates
+  const timeBlocksValue = body.timeBlocks
   let templates: TaskTemplate[] | undefined
+  let timeBlocks: TimeBlock[] | undefined
 
   if (templatesValue !== undefined) {
     const result = z.array(taskTemplateSchema).max(100).safeParse(templatesValue)
@@ -103,6 +135,16 @@ export function parseFillWeekRequestBody(body: unknown): FillWeekRequest {
     templates = result.data
   }
 
+  if (timeBlocksValue !== undefined) {
+    const result = z.array(timeBlockSchema).max(40).safeParse(timeBlocksValue)
+
+    if (!result.success) {
+      throwInvalid(summarizeZodError(result.error))
+    }
+
+    timeBlocks = result.data
+  }
+
   return {
     startDate: parseStartDate(body.startDate),
     days: parseDays(body.days),
@@ -110,6 +152,7 @@ export function parseFillWeekRequestBody(body: unknown): FillWeekRequest {
       body.settings === undefined
         ? undefined
         : parsePrayerApiSettings(body.settings),
+    timeBlocks,
     templates,
   }
 }

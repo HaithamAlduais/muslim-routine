@@ -33,12 +33,27 @@ import {
   seedTimeBlocks,
 } from "@/lib/routine-data"
 import { durationLabel } from "@/lib/template-labels"
-import type { PrayerDay, RepeatType, TaskTemplate, Weekday } from "@/lib/types"
+import type {
+  PrayerDay,
+  RepeatType,
+  TaskTemplate,
+  TimeBlock,
+  Weekday,
+} from "@/lib/types"
 import { buildCalendarBlockEvents } from "@/lib/calendar"
 import {
   defaultPrayerApiSettings,
   type PrayerApiSettings,
 } from "@/lib/prayer-times"
+import {
+  createTimeBlockFromDraft,
+  deleteTimeBlockById,
+  parseStoredTimeBlocks,
+  serializeTimeBlocks,
+  timeBlockToEditorDraft,
+  updateTimeBlockById,
+  type TimeBlockEditorDraft,
+} from "@/lib/time-block-editor"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -148,6 +163,7 @@ const scheduleModeOptions: Array<{
 ]
 
 const templateStorageKey = "muslim-routine.templates.v2"
+const timeBlockStorageKey = "muslim-routine.time-blocks.v1"
 const prayerSettingsStorageKey = "muslim-routine.prayer-settings.v1"
 
 const defaultPrayerSettings: PrayerSettingsDraft = {
@@ -185,9 +201,46 @@ const timezoneOptions = [
   "America/Los_Angeles",
 ]
 
+const blockSourceOptions: Array<{
+  value: TimeBlock["startSource"]
+  label: string
+}> = [
+  { value: "last_sixth", label: "السدس الأخير" },
+  { value: "Fajr", label: "الفجر" },
+  { value: "Sunrise", label: "الشروق" },
+  { value: "Dhuhr", label: "الظهر" },
+  { value: "Asr", label: "العصر" },
+  { value: "Maghrib", label: "المغرب" },
+  { value: "Isha", label: "العشاء" },
+  { value: "fixed", label: "وقت ثابت" },
+]
+
+const blockColorOptions = [
+  { value: "indigo", label: "نيلي" },
+  { value: "emerald", label: "أخضر" },
+  { value: "sky", label: "سماوي" },
+  { value: "amber", label: "ذهبي" },
+  { value: "orange", label: "برتقالي" },
+  { value: "rose", label: "وردي" },
+  { value: "violet", label: "بنفسجي" },
+  { value: "teal", label: "فيروزي" },
+  { value: "slate", label: "رمادي" },
+]
+
+const defaultBlockDraft: TimeBlockEditorDraft = {
+  nameAr: "",
+  sortOrder: 80,
+  color: "emerald",
+  startSource: "Fajr",
+  endSource: "Sunrise",
+  fixedStart: "06:00",
+  fixedEnd: "07:00",
+}
+
 export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [startDate, setStartDate] = React.useState(initialStartDate)
   const [templates, setTemplates] = React.useState(defaultTaskTemplates)
+  const [timeBlocks, setTimeBlocks] = React.useState(seedTimeBlocks)
   const [prayerSettings, setPrayerSettings] =
     React.useState(defaultPrayerSettings)
   const [prayerDays, setPrayerDays] = React.useState<PrayerDay[]>([])
@@ -208,8 +261,15 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   })
   const [editingDraft, setEditingDraft] =
     React.useState<TemplateEditorDraft | null>(null)
+  const [blockDraft, setBlockDraft] =
+    React.useState<TimeBlockEditorDraft>(defaultBlockDraft)
+  const [editingTimeBlock, setEditingTimeBlock] = React.useState<{
+    id: string
+    draft: TimeBlockEditorDraft
+  } | null>(null)
   const [hasLoadedStoredTemplates, setHasLoadedStoredTemplates] =
     React.useState(false)
+  const [hasLoadedTimeBlocks, setHasLoadedTimeBlocks] = React.useState(false)
   const [hasLoadedPrayerSettings, setHasLoadedPrayerSettings] =
     React.useState(false)
   const hasPrayerApiTimes =
@@ -222,9 +282,10 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
         days: 7,
         prayerDays,
         templates,
+        timeBlocks,
         isPrayerTimesReady: hasPrayerApiTimes,
       }),
-    [hasPrayerApiTimes, prayerDays, startDate, templates]
+    [hasPrayerApiTimes, prayerDays, startDate, templates, timeBlocks]
   )
 
   const calendarEvents = React.useMemo(
@@ -335,6 +396,18 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   }, [])
 
   React.useEffect(() => {
+    const storedBlocks = parseStoredTimeBlocks(
+      window.localStorage.getItem(timeBlockStorageKey)
+    )
+
+    if (storedBlocks?.length) {
+      setTimeBlocks(storedBlocks)
+    }
+
+    setHasLoadedTimeBlocks(true)
+  }, [])
+
+  React.useEffect(() => {
     if (!hasLoadedStoredTemplates) {
       return
     }
@@ -349,11 +422,122 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
     }
   }, [hasLoadedStoredTemplates, templates])
 
+  React.useEffect(() => {
+    if (!hasLoadedTimeBlocks) {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(
+        timeBlockStorageKey,
+        serializeTimeBlocks(timeBlocks)
+      )
+    } catch {
+      // Keep routine editing usable even when storage is unavailable.
+    }
+  }, [hasLoadedTimeBlocks, timeBlocks])
+
+  React.useEffect(() => {
+    if (
+      timeBlocks.length > 0 &&
+      !timeBlocks.some((block) => block.id === draft.timeBlockId)
+    ) {
+      setDraft((current) => ({
+        ...current,
+        timeBlockId: timeBlocks[0]!.id,
+      }))
+    }
+  }, [draft.timeBlockId, timeBlocks])
+
+  function addTimeBlock() {
+    if (!blockDraft.nameAr.trim()) {
+      setExportState({ status: "error", message: "اكتب اسم الفترة أولا." })
+      return
+    }
+
+    const nextBlock = createTimeBlockFromDraft(blockDraft, timeBlocks)
+
+    setTimeBlocks((current) => [...current, nextBlock])
+    setBlockDraft({
+      ...defaultBlockDraft,
+      sortOrder: nextBlock.sortOrder + 10,
+    })
+    setExportState({ status: "idle" })
+  }
+
+  function editTimeBlock(block: TimeBlock) {
+    setEditingTimeBlock({
+      id: block.id,
+      draft: timeBlockToEditorDraft(block),
+    })
+  }
+
+  function updateEditingTimeBlockDraft(patch: Partial<TimeBlockEditorDraft>) {
+    setEditingTimeBlock((current) =>
+      current
+        ? {
+            ...current,
+            draft: { ...current.draft, ...patch },
+          }
+        : current
+    )
+  }
+
+  function saveEditingTimeBlock() {
+    if (!editingTimeBlock) {
+      return
+    }
+
+    if (!editingTimeBlock.draft.nameAr.trim()) {
+      setExportState({ status: "error", message: "اكتب اسم الفترة أولا." })
+      return
+    }
+
+    setTimeBlocks((current) =>
+      updateTimeBlockById(current, editingTimeBlock.id, editingTimeBlock.draft)
+    )
+    setEditingTimeBlock(null)
+    setExportState({ status: "idle" })
+  }
+
+  function deleteEditingTimeBlock() {
+    if (!editingTimeBlock || timeBlocks.length <= 1) {
+      return
+    }
+
+    setTimeBlocks((current) =>
+      deleteTimeBlockById(current, editingTimeBlock.id)
+    )
+    setTemplates((current) =>
+      current.filter(
+        (template) => template.defaultTimeBlockId !== editingTimeBlock.id
+      )
+    )
+    setEditingTimeBlock(null)
+    setExportState({ status: "idle" })
+  }
+
+  function resetTimeBlocks() {
+    setTimeBlocks(seedTimeBlocks)
+    setTemplates((current) =>
+      current.filter((template) =>
+        seedTimeBlocks.some((block) => block.id === template.defaultTimeBlockId)
+      )
+    )
+    setEditingTimeBlock(null)
+    setExportState({ status: "idle" })
+  }
+
   function addTemplate() {
     const title = draft.title.trim()
 
     if (!title) {
       setExportState({ status: "error", message: "اكتب اسم الروتين أولا." })
+      return
+    }
+
+    if (!timeBlocks.some((block) => block.id === draft.timeBlockId)) {
+      setExportState({ status: "error", message: "أضف فترة روتين أولا." })
       return
     }
 
@@ -498,6 +682,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   }
 
   function loadExampleTemplates() {
+    setTimeBlocks(seedTimeBlocks)
     setTemplates(exampleTaskTemplates)
     setEditingDraft(null)
     setExportState({ status: "idle" })
@@ -537,6 +722,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
           startDate,
           days: 7,
           settings: toPrayerApiSettings(prayerSettings),
+          timeBlocks,
           templates,
         }),
       })
@@ -669,6 +855,95 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
           </TabsContent>
 
           <TabsContent value="routine" className="m-0">
+            <div className="flex flex-col gap-6">
+              <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ClockIcon data-icon="inline-start" />
+                      فترة روتين جديدة
+                    </CardTitle>
+                    <CardDescription>
+                      أنشئ أو عدل فترات الروتين التي تحتوي المهام.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <TimeBlockFields
+                      draft={blockDraft}
+                      idPrefix="new-time-block"
+                      onChange={(patch) =>
+                        setBlockDraft((current) => ({ ...current, ...patch }))
+                      }
+                    />
+                  </CardContent>
+                  <CardFooter>
+                    <div className="flex w-full flex-col gap-2">
+                      <Button
+                        type="button"
+                        className="w-full"
+                        onClick={addTimeBlock}
+                      >
+                        <PlusIcon data-icon="inline-start" />
+                        إضافة الفترة
+                      </Button>
+                      <Button
+                        type="button"
+                        className="w-full"
+                        variant="outline"
+                        onClick={resetTimeBlocks}
+                      >
+                        <RefreshCwIcon data-icon="inline-start" />
+                        استعادة فترات الصلاة
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {timeBlocks.map((block) => (
+                    <Card key={block.id}>
+                      <CardHeader>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 flex-col gap-2">
+                            <CardTitle className="break-words text-base">
+                              {block.nameAr}
+                            </CardTitle>
+                            <CardDescription>
+                              {timeBlockBoundaryLabel(block)}
+                            </CardDescription>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => editTimeBlock(block)}
+                            aria-label={`تعديل ${block.nameAr}`}
+                          >
+                            <PencilIcon />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="flex flex-wrap gap-2">
+                        <Badge variant="secondary" className="gap-2">
+                          <span
+                            className="size-2 rounded-full"
+                            style={{
+                              backgroundColor: colorSwatch(block.color),
+                            }}
+                          />
+                          {colorLabel(block.color)}
+                        </Badge>
+                        <Badge variant="outline">
+                          ترتيب {block.sortOrder}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+
+              <Separator />
+
             <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
               <Card>
                 <CardHeader>
@@ -714,7 +989,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            {seedTimeBlocks.map((block) => (
+                            {timeBlocks.map((block) => (
                               <SelectItem key={block.id} value={block.id}>
                                 {block.nameAr}
                               </SelectItem>
@@ -912,7 +1187,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                     <CardContent className="flex flex-col gap-3">
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="secondary">
-                          {blockLabel(template.defaultTimeBlockId)}
+                          {blockLabel(template.defaultTimeBlockId, timeBlocks)}
                         </Badge>
                         <Badge variant="outline">
                           {durationLabel(template)}
@@ -952,6 +1227,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                 </div>
               )}
             </section>
+            </div>
           </TabsContent>
 
           <TabsContent value="calendar" className="m-0">
@@ -1275,6 +1551,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
 
         <TemplateEditorDialog
           draft={editingDraft}
+          timeBlocks={timeBlocks}
           onOpenChange={(open) => {
             if (!open) {
               setEditingDraft(null)
@@ -1288,6 +1565,18 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
           onChecklistItemRemove={removeEditingChecklistItem}
           onSave={saveEditingTemplate}
           onDelete={deleteEditingTemplate}
+        />
+        <TimeBlockEditorDialog
+          editingTimeBlock={editingTimeBlock}
+          canDelete={timeBlocks.length > 1}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingTimeBlock(null)
+            }
+          }}
+          onChange={updateEditingTimeBlockDraft}
+          onSave={saveEditingTimeBlock}
+          onDelete={deleteEditingTimeBlock}
         />
       </div>
     </main>
@@ -1352,8 +1641,216 @@ function PrayerTimesPanel({ state }: { state: PrayerTimesState }) {
   )
 }
 
+function TimeBlockFields({
+  draft,
+  idPrefix,
+  onChange,
+}: {
+  draft: TimeBlockEditorDraft
+  idPrefix: string
+  onChange: (patch: Partial<TimeBlockEditorDraft>) => void
+}) {
+  const showFixedStart =
+    draft.startSource === "fixed" || draft.startSource === "custom"
+  const showFixedEnd =
+    draft.endSource === "fixed" || draft.endSource === "custom"
+
+  return (
+    <FieldGroup>
+      <Field>
+        <FieldLabel htmlFor={`${idPrefix}-name`}>اسم الفترة</FieldLabel>
+        <Input
+          id={`${idPrefix}-name`}
+          value={draft.nameAr}
+          onChange={(event) => onChange({ nameAr: event.target.value })}
+          placeholder="مثلا: الفجر إلى العمل"
+        />
+      </Field>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field>
+          <FieldLabel>البداية</FieldLabel>
+          <Select
+            value={draft.startSource}
+            onValueChange={(value) =>
+              onChange({ startSource: value as TimeBlock["startSource"] })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {blockSourceOptions.map((source) => (
+                  <SelectItem key={source.value} value={source.value}>
+                    {source.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field>
+          <FieldLabel>النهاية</FieldLabel>
+          <Select
+            value={draft.endSource}
+            onValueChange={(value) =>
+              onChange({ endSource: value as TimeBlock["endSource"] })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {blockSourceOptions.map((source) => (
+                  <SelectItem key={source.value} value={source.value}>
+                    {source.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+
+      {(showFixedStart || showFixedEnd) && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {showFixedStart && (
+            <Field>
+              <FieldLabel htmlFor={`${idPrefix}-fixed-start`}>
+                وقت البداية
+              </FieldLabel>
+              <Input
+                id={`${idPrefix}-fixed-start`}
+                dir="ltr"
+                type="time"
+                value={draft.fixedStart}
+                onChange={(event) =>
+                  onChange({ fixedStart: event.target.value })
+                }
+              />
+            </Field>
+          )}
+
+          {showFixedEnd && (
+            <Field>
+              <FieldLabel htmlFor={`${idPrefix}-fixed-end`}>
+                وقت النهاية
+              </FieldLabel>
+              <Input
+                id={`${idPrefix}-fixed-end`}
+                dir="ltr"
+                type="time"
+                value={draft.fixedEnd}
+                onChange={(event) => onChange({ fixedEnd: event.target.value })}
+              />
+            </Field>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field>
+          <FieldLabel>لون التقويم</FieldLabel>
+          <Select
+            value={draft.color}
+            onValueChange={(color) => onChange({ color })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {blockColorOptions.map((color) => (
+                  <SelectItem key={color.value} value={color.value}>
+                    {color.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor={`${idPrefix}-sort`}>الترتيب</FieldLabel>
+          <Input
+            id={`${idPrefix}-sort`}
+            type="number"
+            min={0}
+            max={10000}
+            value={draft.sortOrder}
+            onChange={(event) =>
+              onChange({ sortOrder: Number(event.target.value) })
+            }
+          />
+        </Field>
+      </div>
+    </FieldGroup>
+  )
+}
+
+function TimeBlockEditorDialog({
+  editingTimeBlock,
+  canDelete,
+  onOpenChange,
+  onChange,
+  onSave,
+  onDelete,
+}: {
+  editingTimeBlock: { id: string; draft: TimeBlockEditorDraft } | null
+  canDelete: boolean
+  onOpenChange: (open: boolean) => void
+  onChange: (patch: Partial<TimeBlockEditorDraft>) => void
+  onSave: () => void
+  onDelete: () => void
+}) {
+  return (
+    <Dialog open={Boolean(editingTimeBlock)} onOpenChange={onOpenChange}>
+      {editingTimeBlock && (
+        <DialogContent className="max-h-[calc(100svh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b px-4 py-4">
+            <DialogTitle>تعديل فترة الروتين</DialogTitle>
+            <DialogDescription>
+              الفترة تحدد حدود المهام وألوان أحداث Google Calendar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-[calc(100svh-12rem)]">
+            <div className="px-4 py-4">
+              <TimeBlockFields
+                draft={editingTimeBlock.draft}
+                idPrefix="edit-time-block"
+                onChange={onChange}
+              />
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="border-t px-4 py-4">
+            <Button type="button" onClick={onSave}>
+              <SaveIcon data-icon="inline-start" />
+              حفظ الفترة
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!canDelete}
+              onClick={onDelete}
+            >
+              <Trash2Icon data-icon="inline-start" />
+              حذف الفترة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      )}
+    </Dialog>
+  )
+}
+
 function TemplateEditorDialog({
   draft,
+  timeBlocks,
   onOpenChange,
   onChange,
   onCategoryChange,
@@ -1365,6 +1862,7 @@ function TemplateEditorDialog({
   onDelete,
 }: {
   draft: TemplateEditorDraft | null
+  timeBlocks: TimeBlock[]
   onOpenChange: (open: boolean) => void
   onChange: (patch: Partial<TemplateEditorDraft>) => void
   onCategoryChange: (categoryId: string) => void
@@ -1417,7 +1915,7 @@ function TemplateEditorDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          {seedTimeBlocks.map((block) => (
+                          {timeBlocks.map((block) => (
                             <SelectItem key={block.id} value={block.id}>
                               {block.nameAr}
                             </SelectItem>
@@ -1928,8 +2426,43 @@ function isValidTimezone(value: unknown): value is string {
   }
 }
 
-function blockLabel(blockId: string) {
-  return seedTimeBlocks.find((block) => block.id === blockId)?.nameAr ?? blockId
+function blockLabel(blockId: string, timeBlocks: TimeBlock[]) {
+  return timeBlocks.find((block) => block.id === blockId)?.nameAr ?? blockId
+}
+
+function timeBlockBoundaryLabel(block: TimeBlock) {
+  return `${sourceLabel(block.startSource, block.fixedStart)} إلى ${sourceLabel(
+    block.endSource,
+    block.fixedEnd
+  )}`
+}
+
+function sourceLabel(source: TimeBlock["startSource"], fixedTime?: string) {
+  if (source === "fixed" || source === "custom") {
+    return fixedTime ?? "00:00"
+  }
+
+  return blockSourceOptions.find((option) => option.value === source)?.label ?? source
+}
+
+function colorLabel(color: string) {
+  return blockColorOptions.find((option) => option.value === color)?.label ?? color
+}
+
+function colorSwatch(color: string) {
+  const swatches: Record<string, string> = {
+    indigo: "#6366f1",
+    emerald: "#10b981",
+    sky: "#0ea5e9",
+    amber: "#f59e0b",
+    orange: "#f97316",
+    rose: "#f43f5e",
+    violet: "#8b5cf6",
+    teal: "#14b8a6",
+    slate: "#64748b",
+  }
+
+  return swatches[color] ?? "#10b981"
 }
 
 function repeatLabel(repeatType: RepeatType, repeatDays: Weekday[]) {

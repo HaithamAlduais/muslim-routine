@@ -12,6 +12,7 @@ const packedDay: PackedDay = {
       timeBlockId: "fajr_to_sunrise",
       nameAr: "الفجر إلى الشروق",
       sortOrder: 20,
+      color: "emerald",
       startTime: "2026-05-24T04:12:00+03:00",
       endTime: "2026-05-24T05:37:00+03:00",
       occurrences: [

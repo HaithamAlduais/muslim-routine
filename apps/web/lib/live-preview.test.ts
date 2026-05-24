@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { buildLiveWeekPreview } from "./live-preview"
 import { exampleTaskTemplates } from "./routine-data"
-import type { PrayerDay } from "./types"
+import type { PrayerDay, TimeBlock } from "./types"
 
 const prayerDays: PrayerDay[] = [
   {
@@ -69,5 +69,40 @@ describe("live preview gating", () => {
     )
 
     expect(fajrBlock?.startTime).toBe("2026-05-24T03:37:00+03:00")
+  })
+
+  it("uses edited routine blocks in the live preview", () => {
+    const timeBlocks: TimeBlock[] = [
+      {
+        id: "custom_morning",
+        nameAr: "صباح مخصص",
+        sortOrder: 10,
+        color: "violet",
+        startSource: "Fajr",
+        endSource: "fixed",
+        fixedEnd: "07:30",
+      },
+    ]
+    const preview = buildLiveWeekPreview({
+      startDate: "2026-05-24",
+      days: 1,
+      prayerDays,
+      templates: [
+        {
+          ...exampleTaskTemplates[0]!,
+          defaultTimeBlockId: "custom_morning",
+        },
+      ],
+      timeBlocks,
+      isPrayerTimesReady: true,
+    })
+
+    expect(preview[0]!.blocks).toHaveLength(1)
+    expect(preview[0]!.blocks[0]).toMatchObject({
+      timeBlockId: "custom_morning",
+      nameAr: "صباح مخصص",
+      color: "violet",
+    })
+    expect(preview[0]!.blocks[0]!.occurrences[0]?.title).toBe("قيام")
   })
 })

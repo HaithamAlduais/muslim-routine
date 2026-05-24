@@ -47,6 +47,17 @@ describe("request validation", () => {
         school: 1,
         timezone: "Asia/Riyadh",
       },
+      timeBlocks: [
+        {
+          id: "custom_morning",
+          nameAr: "صباح مخصص",
+          sortOrder: 10,
+          color: "violet",
+          startSource: "Fajr",
+          endSource: "fixed",
+          fixedEnd: "07:30",
+        },
+      ],
       templates: [exampleTaskTemplates[0]],
     })
 
@@ -59,6 +70,8 @@ describe("request validation", () => {
       school: 1,
       timezone: "Asia/Riyadh",
     })
+    expect(parsed.timeBlocks).toHaveLength(1)
+    expect(parsed.timeBlocks?.[0]?.id).toBe("custom_morning")
     expect(parsed.templates).toHaveLength(1)
   })
 
