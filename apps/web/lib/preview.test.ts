@@ -64,6 +64,24 @@ describe("buildWeekPreview", () => {
     ])
   })
 
+  it("keeps corrected duration defaults for worship and food templates", () => {
+    const durations = Object.fromEntries(
+      seedTaskTemplates.map((template) => [
+        template.id,
+        template.defaultDurationMinutes,
+      ])
+    )
+
+    expect(durations).toMatchObject({
+      "before-fajr": 30,
+      "prepare-istighfar": 10,
+      "suhoor-istighfar": 30,
+      "family-breakfast": 30,
+      "family-lunch": 30,
+      "family-dinner": 30,
+    })
+  })
+
   it("builds a seven-day prayer-block preview from the seeded routine", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
