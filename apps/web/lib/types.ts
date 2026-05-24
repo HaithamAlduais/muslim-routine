@@ -33,7 +33,7 @@ export type TimeBlock = {
   nameAr: string
   sortOrder: number
   color: string
-  startSource: PrayerName | "fixed" | "custom"
+  startSource: PrayerName | "fixed" | "custom" | "last_sixth"
   endSource: PrayerName | "fixed" | "custom"
   fixedStart?: string
   fixedEnd?: string

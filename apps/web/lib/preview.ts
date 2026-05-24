@@ -38,6 +38,7 @@ export function buildWeekPreview({
     return autoPackDay({
       date,
       prayers,
+      previousPrayers: prayerMap.get(addDays(date, -1)),
       timeBlocks,
       occurrences,
     })

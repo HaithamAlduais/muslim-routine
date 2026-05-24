@@ -1,4 +1,4 @@
-import { addMinutes, minutesBetween, prayerDateTime } from "./date-utils"
+import { addDays, addMinutes, minutesBetween, prayerDateTime } from "./date-utils"
 import type {
   PackedDay,
   PrayerDay,
@@ -10,6 +10,7 @@ import type {
 type AutoPackDayInput = {
   date: string
   prayers: PrayerDay
+  previousPrayers?: PrayerDay
   timeBlocks: TimeBlock[]
   occurrences: TaskOccurrence[]
 }
@@ -23,6 +24,7 @@ export function sortTimeBlocks(blocks: TimeBlock[]) {
 export function autoPackDay({
   date,
   prayers,
+  previousPrayers,
   timeBlocks,
   occurrences,
 }: AutoPackDayInput): PackedDay {
@@ -31,9 +33,15 @@ export function autoPackDay({
     const startTime = resolveBlockTime(
       block.startSource,
       block.fixedStart,
-      prayers
+      prayers,
+      previousPrayers
     )
-    const endTime = resolveBlockTime(block.endSource, block.fixedEnd, prayers)
+    const endTime = resolveBlockTime(
+      block.endSource,
+      block.fixedEnd,
+      prayers,
+      previousPrayers
+    )
     const blockOccurrences = occurrences
       .filter(
         (occurrence) =>
@@ -84,11 +92,33 @@ export function autoPackDay({
 function resolveBlockTime(
   source: TimeBlock["startSource"],
   fixedTime: string | undefined,
-  prayers: PrayerDay
+  prayers: PrayerDay,
+  previousPrayers: PrayerDay | undefined
 ) {
   if (source === "fixed" || source === "custom") {
     return prayerDateTime(prayers, fixedTime ?? "00:00")
   }
 
+  if (source === "last_sixth") {
+    return resolveLastSixthStart(prayers, previousPrayers)
+  }
+
   return prayerDateTime(prayers, prayers.timings[source])
+}
+
+function resolveLastSixthStart(
+  prayers: PrayerDay,
+  previousPrayers: PrayerDay | undefined
+) {
+  const nightStart = previousPrayers
+    ? prayerDateTime(previousPrayers, previousPrayers.timings.Maghrib)
+    : prayerDateTime(
+        { ...prayers, date: addDays(prayers.date, -1) },
+        prayers.timings.Maghrib
+      )
+  const nightEnd = prayerDateTime(prayers, prayers.timings.Fajr)
+  const nightMinutes = minutesBetween(nightStart, nightEnd)
+  const lastSixthMinutes = Math.round(nightMinutes / 6)
+
+  return addMinutes(nightEnd, -lastSixthMinutes)
 }

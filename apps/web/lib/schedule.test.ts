@@ -22,6 +22,15 @@ const blocks: TimeBlock[] = [
   },
 ]
 
+const lastSixthBlock: TimeBlock = {
+  id: "last_sixth_to_fajr",
+  nameAr: "السدس الأخير من الليل",
+  sortOrder: 10,
+  color: "indigo",
+  startSource: "last_sixth",
+  endSource: "Fajr",
+}
+
 const prayers: PrayerDay = {
   date: "2026-05-24",
   timezone: "Asia/Riyadh",
@@ -32,6 +41,19 @@ const prayers: PrayerDay = {
     Asr: "15:15",
     Maghrib: "18:38",
     Isha: "20:08",
+  },
+}
+
+const previousPrayers: PrayerDay = {
+  date: "2026-05-23",
+  timezone: "Asia/Riyadh",
+  timings: {
+    Fajr: "04:11",
+    Sunrise: "05:36",
+    Dhuhr: "11:54",
+    Asr: "15:15",
+    Maghrib: "18:36",
+    Isha: "20:07",
   },
 }
 
@@ -95,6 +117,21 @@ describe("routine scheduling", () => {
         endTime: "2026-05-24T04:57:00+03:00",
       },
     ])
+  })
+
+  it("calculates the last sixth of the night from previous Maghrib to current Fajr", () => {
+    const packed = autoPackDay({
+      date: "2026-05-24",
+      prayers,
+      previousPrayers,
+      timeBlocks: [lastSixthBlock],
+      occurrences: [],
+    })
+
+    expect(packed.blocks[0]).toMatchObject({
+      startTime: "2026-05-24T02:36:00+03:00",
+      endTime: "2026-05-24T04:12:00+03:00",
+    })
   })
 
   it("flags a conflict when tasks exceed the prayer block window", () => {

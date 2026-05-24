@@ -54,11 +54,10 @@ export const seedCategories: Category[] = [
 export const seedTimeBlocks: TimeBlock[] = [
   {
     id: "last_sixth_to_fajr",
-    nameAr: "السدس / قبل الفجر",
+    nameAr: "السدس الأخير من الليل / قبل الفجر",
     sortOrder: 10,
     color: "indigo",
-    startSource: "fixed",
-    fixedStart: "03:20",
+    startSource: "last_sixth",
     endSource: "Fajr",
   },
   {
