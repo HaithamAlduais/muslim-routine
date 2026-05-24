@@ -55,13 +55,15 @@ describe("buildWeekPreview", () => {
       { title: "انجليزي", repeatDays: [1, 4] },
       { title: "نوم", repeatDays: [5, 6] },
       { title: "فطور مع الأسرة", repeatDays: [0, 2, 3, 5, 6] },
+      { title: "مهام", repeatDays: [1, 2, 3, 4, 5] },
       { title: "غداء مع العائلة", repeatDays: [0, 2, 3, 6] },
-      { title: "مهام", repeatDays: [0, 1, 2, 3, 4] },
+      { title: "مهام", repeatDays: [1, 2, 3, 4] },
       { title: "العائلة", repeatDays: [5] },
       { title: "الأسرة", repeatDays: [0, 1, 2, 3, 4] },
       { title: "غداء وجلسة مع العائلة", repeatDays: [5] },
       { title: "العائلة", repeatDays: [6] },
       { title: "آخر ساعة", repeatDays: [5] },
+      { title: "عربي", repeatDays: [1, 2, 3, 4, 5] },
       { title: "لعب", repeatDays: [5, 6] },
       { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [4] },
       { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [5] },
@@ -117,7 +119,7 @@ describe("buildWeekPreview", () => {
       preview.map((day) =>
         day.blocks.reduce((total, block) => total + block.occurrences.length, 0)
       )
-    ).toEqual([17, 15, 17, 17, 15, 18, 17])
+    ).toEqual([14, 15, 17, 17, 15, 18, 15])
 
     const datesForTemplate = (templateId: string) =>
       preview.flatMap((day) =>
@@ -147,6 +149,13 @@ describe("buildWeekPreview", () => {
         "2026-05-29",
         "2026-05-30",
       ],
+      "sunrise-tasks": [
+        "2026-05-25",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-28",
+        "2026-05-29",
+      ],
       "family-lunch": [
         "2026-05-24",
         "2026-05-26",
@@ -154,7 +163,6 @@ describe("buildWeekPreview", () => {
         "2026-05-30",
       ],
       "dhuhr-tasks": [
-        "2026-05-24",
         "2026-05-25",
         "2026-05-26",
         "2026-05-27",
@@ -171,6 +179,13 @@ describe("buildWeekPreview", () => {
       "friday-family-lunch-session": ["2026-05-29"],
       "saturday-asr-family": ["2026-05-30"],
       "last-hour": ["2026-05-29"],
+      arabic: [
+        "2026-05-25",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-28",
+        "2026-05-29",
+      ],
       play: ["2026-05-29", "2026-05-30"],
       "friends-family-first": ["2026-05-28"],
       "friends-family-second": ["2026-05-29"],
@@ -303,6 +318,28 @@ describe("buildWeekPreview", () => {
     ])
   })
 
+  it("removes Arabic and generic task placeholders from Sunday and Saturday", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-24",
+      days: 7,
+      templates: seedTaskTemplates,
+    })
+
+    const titlesByDate = new Map(
+      preview.map((day) => [
+        day.date,
+        day.blocks.flatMap((block) =>
+          block.occurrences.map((occurrence) => occurrence.title)
+        ),
+      ])
+    )
+
+    for (const date of ["2026-05-24", "2026-05-30"]) {
+      expect(titlesByDate.get(date)).not.toContain("عربي")
+      expect(titlesByDate.get(date)).not.toContain("مهام")
+    }
+  })
+
   it("packs the Notion routine without scheduling conflicts", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
@@ -338,12 +375,10 @@ describe("buildWeekPreview", () => {
     ])
     expect(titlesByBlock.get("sunrise_to_dhuhr")).toEqual([
       "فطور مع الأسرة",
-      "مهام",
     ])
     expect(titlesByBlock.get("dhuhr_to_asr")).toEqual([
       "صلاة الظهر",
       "غداء مع العائلة",
-      "مهام",
     ])
     expect(titlesByBlock.get("asr_to_maghrib")).toEqual([
       "صلاة العصر",
@@ -351,7 +386,6 @@ describe("buildWeekPreview", () => {
     ])
     expect(titlesByBlock.get("maghrib_to_isha")).toEqual([
       "صلاة المغرب",
-      "عربي",
     ])
     expect(titlesByBlock.get("isha_to_sleep")).toEqual([
       "صلاة العشاء",
