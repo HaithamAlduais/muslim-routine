@@ -67,6 +67,33 @@ describe("prayer API routes", () => {
     expect(response.status).toBe(502)
     expect(body.message).toContain("Prayer API failed")
   })
+
+  it("rejects invalid prayer-time query windows", async () => {
+    const response = await getPrayerTimes(
+      new Request("http://localhost/api/prayer-times?startDate=2026-02-31&days=7")
+    )
+    const body = (await response.json()) as { message?: string }
+
+    expect(response.status).toBe(400)
+    expect(body.message).toContain("valid YYYY-MM-DD")
+  })
+
+  it("rejects invalid fill-week request windows before fetching prayer times", async () => {
+    const fetcher = vi.fn()
+    vi.stubGlobal("fetch", fetcher)
+
+    const response = await fillWeek(
+      new Request("http://localhost/api/calendar/fill-week", {
+        method: "POST",
+        body: JSON.stringify({ startDate: "2026-05-24", days: 99 }),
+      })
+    )
+    const body = (await response.json()) as { message?: string }
+
+    expect(response.status).toBe(400)
+    expect(body.message).toContain("between 1 and")
+    expect(fetcher).not.toHaveBeenCalled()
+  })
 })
 
 function mockPrayerFetch() {

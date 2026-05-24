@@ -37,10 +37,21 @@ For Google Calendar service-account testing:
 
 Never commit `.env.local`, service-account JSON, or Supabase service-role keys.
 
+## Production Readiness
+
+- Run `pnpm --filter web test`, `pnpm --filter web typecheck`, `pnpm lint`, and `pnpm build` before deployment.
+- Confirm `/api/health` returns `status: "ok"` and shows `configured` for the integrations you expect.
+- Keep `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` public-client only.
+- Keep `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_SERVICE_ACCOUNT_FILE`, and `GOOGLE_SERVICE_ACCOUNT_JSON` server-side only.
+- Rotate any service-role key or service-account credential that was ever pasted into chat before public deployment.
+- Prayer times come from AlAdhan with Riyadh/Umm Al-Qura defaults and are cached at the route edge for production traffic.
+- The live UI waits for AlAdhan results before previewing or filling Google Calendar, so seed/demo prayer times are not used for real exports.
+
 ## Verification
 
 ```bash
 corepack pnpm test
+corepack pnpm typecheck
 corepack pnpm lint
 corepack pnpm build
 ```

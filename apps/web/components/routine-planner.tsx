@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import { buildWeekPreview } from "@/lib/preview"
+import { buildLiveWeekPreview } from "@/lib/live-preview"
 import {
   seedCategories,
   seedTaskTemplates,
@@ -108,16 +109,19 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [exportState, setExportState] = React.useState<ExportState>({
     status: "idle",
   })
+  const hasPrayerApiTimes =
+    prayerTimesState.status === "ready" && prayerDays.length > 0
 
   const preview = React.useMemo(
     () =>
-      buildWeekPreview({
+      buildLiveWeekPreview({
         startDate,
         days: 7,
-        prayerDays: prayerDays.length ? prayerDays : undefined,
+        prayerDays,
         templates,
+        isPrayerTimesReady: hasPrayerApiTimes,
       }),
-    [prayerDays, startDate, templates]
+    [hasPrayerApiTimes, prayerDays, startDate, templates]
   )
 
   const calendarEvents = React.useMemo(
@@ -358,11 +362,15 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                 </CardFooter>
               </Card>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {preview.map((day) => (
-                  <DayPreview key={day.date} day={day} />
-                ))}
-              </div>
+              {hasPrayerApiTimes ? (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {preview.map((day) => (
+                    <DayPreview key={day.date} day={day} />
+                  ))}
+                </div>
+              ) : (
+                <PrayerTimesPanel state={prayerTimesState} />
+              )}
             </section>
           </TabsContent>
 
@@ -647,7 +655,9 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                     type="button"
                     className="w-full"
                     onClick={fillCalendar}
-                    disabled={exportState.status === "loading"}
+                    disabled={
+                      exportState.status === "loading" || !hasPrayerApiTimes
+                    }
                   >
                     {exportState.status === "loading" ? (
                       <RefreshCwIcon data-icon="inline-start" />
@@ -770,6 +780,31 @@ function PrayerTimesStatus({ state }: { state: PrayerTimesState }) {
     <Badge variant="outline" className="justify-center">
       جاري جلب أوقات الصلاة
     </Badge>
+  )
+}
+
+function PrayerTimesPanel({ state }: { state: PrayerTimesState }) {
+  if (state.status === "error") {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>تعذر جلب أوقات الصلاة</AlertTitle>
+        <AlertDescription>
+          {state.message} لن يتم عرض معاينة أو تعبئة التقويم حتى تصل أوقات
+          الصلاة من AlAdhan API.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  return (
+    <Alert>
+      <ClockIcon />
+      <AlertTitle>جاري تجهيز أوقات الصلاة</AlertTitle>
+      <AlertDescription>
+        المعاينة تنتظر أوقات الصلاة الحقيقية من AlAdhan API حتى لا تظهر أوقات
+        تجريبية في الواجهة.
+      </AlertDescription>
+    </Alert>
   )
 }
 

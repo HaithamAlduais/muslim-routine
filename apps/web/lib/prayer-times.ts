@@ -2,6 +2,8 @@ import { addDays } from "./date-utils"
 import type { PrayerDay, PrayerName } from "./types"
 
 const ALADHAN_API_BASE_URL = "https://api.aladhan.com/v1"
+const PRAYER_API_REVALIDATE_SECONDS = 60 * 60 * 12
+const PRAYER_API_TIMEOUT_MS = 8000
 const PRAYER_NAMES: PrayerName[] = [
   "Fajr",
   "Sunrise",
@@ -26,7 +28,16 @@ type FetchPrayerDaysInput = {
   fetcher?: PrayerTimesFetch
 }
 
-type PrayerTimesFetch = (input: URL) => Promise<Response>
+type PrayerTimesFetchInit = RequestInit & {
+  next?: {
+    revalidate: number
+  }
+}
+
+type PrayerTimesFetch = (
+  input: URL,
+  init?: PrayerTimesFetchInit
+) => Promise<Response>
 
 type AladhanTimingResponse = {
   code: number
@@ -68,7 +79,7 @@ export async function fetchPrayerDaysForPreview({
   startDate,
   days,
   settings = defaultPrayerApiSettings,
-  fetcher = fetch,
+  fetcher = defaultPrayerTimesFetch,
 }: FetchPrayerDaysInput): Promise<PrayerDay[]> {
   const firstDate = addDays(startDate, -1)
   const dates = Array.from({ length: days + 2 }, (_, index) =>
@@ -101,7 +112,12 @@ async function fetchPrayerDay({
   fetcher: PrayerTimesFetch
   settings: PrayerApiSettings
 }): Promise<PrayerDay> {
-  const response = await fetcher(buildPrayerTimesApiUrl(date, settings))
+  const response = await fetcher(buildPrayerTimesApiUrl(date, settings), {
+    signal: AbortSignal.timeout(PRAYER_API_TIMEOUT_MS),
+    next: {
+      revalidate: PRAYER_API_REVALIDATE_SECONDS,
+    },
+  })
 
   if (!response.ok) {
     throw new Error(`Prayer API failed for ${date}`)
@@ -128,4 +144,8 @@ async function fetchPrayerDay({
       })
     ) as PrayerDay["timings"],
   }
+}
+
+function defaultPrayerTimesFetch(input: URL, init?: PrayerTimesFetchInit) {
+  return fetch(input, init)
 }

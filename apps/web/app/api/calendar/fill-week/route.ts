@@ -8,21 +8,31 @@ import {
 } from "@/lib/google-calendar"
 import { buildWeekPreview } from "@/lib/preview"
 import { fetchPrayerDaysForPreview } from "@/lib/prayer-times"
+import {
+  parseFillWeekRequestBody,
+  validationErrorMessage,
+} from "@/lib/request-validation"
 import type {
   CalendarBlockEvent,
   CalendarExportRecord,
   PrayerDay,
-  TaskTemplate,
 } from "@/lib/types"
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as {
-    startDate?: string
-    days?: number
-    templates?: TaskTemplate[]
+  let body: ReturnType<typeof parseFillWeekRequestBody>
+
+  try {
+    body = parseFillWeekRequestBody(await request.json())
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message: validationErrorMessage(error),
+      },
+      { status: 400 }
+    )
   }
-  const startDate = body.startDate ?? new Date().toISOString().slice(0, 10)
-  const days = body.days ?? 7
+
+  const { startDate, days, templates } = body
   let prayerDays: PrayerDay[]
 
   try {
@@ -46,7 +56,7 @@ export async function POST(request: Request) {
     startDate,
     days,
     prayerDays,
-    templates: body.templates,
+    templates,
   })
   const events = await buildCalendarBlockEvents(preview)
   const calendarId = process.env.GOOGLE_CALENDAR_ID

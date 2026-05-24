@@ -66,4 +66,47 @@ describe("prayer time API integration", () => {
     ])
     expect(fetcher).toHaveBeenCalledTimes(4)
   })
+
+  it("uses timeout and Next.js revalidation options for production fetches", async () => {
+    type PrayerFetchInit = RequestInit & {
+      next?: {
+        revalidate: number
+      }
+    }
+    const fetcher = vi.fn(
+      async (_input: string | URL, _init?: PrayerFetchInit) => {
+        void _input
+        void _init
+
+        return Response.json({
+          code: 200,
+          status: "OK",
+          data: {
+            timings: {
+              Fajr: "03:37",
+              Sunrise: "05:06",
+              Dhuhr: "11:50",
+              Asr: "15:13",
+              Maghrib: "18:35",
+              Isha: "20:05",
+            },
+            meta: {
+              timezone: "Asia/Riyadh",
+            },
+          },
+        })
+      }
+    )
+
+    await fetchPrayerDaysForPreview({
+      startDate: "2026-05-24",
+      days: 1,
+      fetcher,
+    })
+
+    const init = fetcher.mock.calls[0]?.[1]
+
+    expect(init?.signal).toBeInstanceOf(AbortSignal)
+    expect(init?.next).toEqual({ revalidate: 43200 })
+  })
 })
