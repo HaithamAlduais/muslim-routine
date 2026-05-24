@@ -13,6 +13,7 @@ export function toGoogleCalendarEventResource(event: CalendarBlockEvent) {
   return {
     summary: event.summary,
     description: event.description,
+    colorId: event.googleCalendarColorId,
     start: { dateTime: event.start },
     end: { dateTime: event.end },
     extendedProperties: {

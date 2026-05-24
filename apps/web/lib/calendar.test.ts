@@ -68,6 +68,7 @@ describe("buildCalendarBlockEvents", () => {
       summary: "الفجر إلى الشروق",
       start: "2026-05-24T04:12:00+03:00",
       end: "2026-05-24T05:37:00+03:00",
+      googleCalendarColorId: "10",
     })
     expect(events[0]!.description).toContain("صلاة الفجر")
     expect(events[0]!.description).toContain("قرآن")
@@ -100,6 +101,29 @@ describe("buildCalendarBlockEvents", () => {
     const second = await buildCalendarBlockEvents([changed])
 
     expect(first[0]!.payloadHash).not.toBe(second[0]!.payloadHash)
+  })
+
+  it("assigns distinct Google Calendar colors for each time group", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-24",
+      days: 1,
+    })
+    const colors = Object.fromEntries(
+      buildCalendarBlockEvents(preview).map((event) => [
+        event.timeBlockId,
+        event.googleCalendarColorId,
+      ])
+    )
+
+    expect(colors).toMatchObject({
+      last_sixth_to_fajr: "9",
+      fajr_to_sunrise: "10",
+      sunrise_to_dhuhr: "7",
+      dhuhr_to_asr: "5",
+      asr_to_maghrib: "6",
+      maghrib_to_isha: "4",
+      isha_to_sleep: "8",
+    })
   })
 
   it("includes Notion page checklist contents in Google Calendar descriptions", () => {

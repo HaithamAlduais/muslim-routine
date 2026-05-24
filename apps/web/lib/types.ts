@@ -124,6 +124,7 @@ export type CalendarBlockEvent = {
   payloadHash: string
   timeBlockId: string
   date: string
+  googleCalendarColorId: string
 }
 
 export type Category = {

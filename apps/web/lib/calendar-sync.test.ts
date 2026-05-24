@@ -12,6 +12,7 @@ const event: CalendarBlockEvent = {
   payloadHash: "abc123",
   timeBlockId: "fajr_to_sunrise",
   date: "2026-05-24",
+  googleCalendarColorId: "10",
 }
 
 describe("syncCalendarBlockEvents", () => {

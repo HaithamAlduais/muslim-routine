@@ -1,5 +1,15 @@
 import type { CalendarBlockEvent, PackedDay, TaskOccurrence } from "./types"
 
+const googleCalendarColorIdsByTimeBlock: Record<string, string> = {
+  last_sixth_to_fajr: "9",
+  fajr_to_sunrise: "10",
+  sunrise_to_dhuhr: "7",
+  dhuhr_to_asr: "5",
+  asr_to_maghrib: "6",
+  maghrib_to_isha: "4",
+  isha_to_sleep: "8",
+}
+
 export function buildCalendarBlockEvents(
   days: PackedDay[]
 ): CalendarBlockEvent[] {
@@ -17,11 +27,15 @@ export function buildCalendarBlockEvents(
             occurrence.includeInCalendar && occurrence.status !== "skipped"
         )
         const description = buildDescription(included)
+        const googleCalendarColorId = googleCalendarColorIdForTimeBlock(
+          block.timeBlockId
+        )
         const payload = {
           summary: block.nameAr,
           description,
           start: block.startTime,
           end: block.endTime,
+          googleCalendarColorId,
         }
 
         return {
@@ -33,9 +47,14 @@ export function buildCalendarBlockEvents(
           payloadHash: stableHash(JSON.stringify(payload)),
           timeBlockId: block.timeBlockId,
           date: day.date,
+          googleCalendarColorId,
         }
       })
   )
+}
+
+export function googleCalendarColorIdForTimeBlock(timeBlockId: string) {
+  return googleCalendarColorIdsByTimeBlock[timeBlockId] ?? "1"
 }
 
 function buildDescription(occurrences: TaskOccurrence[]) {

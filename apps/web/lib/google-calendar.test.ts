@@ -14,11 +14,13 @@ describe("toGoogleCalendarEventResource", () => {
       payloadHash: "abc",
       timeBlockId: "fajr_to_sunrise",
       date: "2026-05-24",
+      googleCalendarColorId: "10",
     }
 
     expect(toGoogleCalendarEventResource(event)).toEqual({
       summary: "الفجر إلى الشروق",
       description: "1. صلاة الفجر",
+      colorId: "10",
       start: { dateTime: "2026-05-24T04:12:00+03:00" },
       end: { dateTime: "2026-05-24T05:37:00+03:00" },
       extendedProperties: {
