@@ -20,6 +20,7 @@ Arabic-first routine planner that turns user-created prayer-time-group missions 
 - shadcn/ui with RTL enabled
 - Supabase Postgres migrations with RLS
 - Google Calendar API via server-side service account credentials
+- Expo Android shell for APK builds
 - Vitest for scheduling/export logic
 
 ## Local Setup
@@ -40,6 +41,28 @@ For Google Calendar service-account testing:
 `GOOGLE_CALENDAR_ID` comes from Google Calendar settings under **Integrate calendar**. It is usually an email-like value for a primary calendar or a long `...@group.calendar.google.com` value for a secondary calendar. Do not use the service account **Unique ID** or **Client ID** as the calendar ID.
 
 Never commit `.env.local`, service-account JSON, or Supabase service-role keys.
+
+## Android APK
+
+The Expo app lives in `apps/mobile`. It opens the production web app in a native Android shell so the existing Next.js backend, Supabase, and Google Calendar sync stay server-side.
+
+For local emulator testing, the default app URL is `http://10.0.2.2:3000`, which points the Android emulator back to the host machine. For a real phone or a production APK, set `EXPO_PUBLIC_ROUTINE_APP_URL` to a deployed HTTPS URL before building.
+
+```bash
+corepack pnpm --dir apps/mobile start
+corepack pnpm --dir apps/mobile typecheck
+corepack pnpm --dir apps/mobile doctor
+
+# Requires an Expo account login.
+corepack pnpm --dir apps/mobile build:apk
+```
+
+If you are not logged into EAS yet:
+
+```bash
+corepack pnpm dlx eas-cli@latest login
+corepack pnpm --dir apps/mobile build:apk
+```
 
 ## Production Readiness
 
