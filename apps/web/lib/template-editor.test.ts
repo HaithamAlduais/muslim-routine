@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   applyTemplateEditorDraft,
   deleteTemplateById,
+  migrateTemplateRepeatDays,
   migrateTemplateDuration,
   parseStoredTemplates,
   serializeTemplates,
@@ -14,7 +15,9 @@ import type { Weekday } from "./types"
 
 describe("template editor helpers", () => {
   it("updates all editable template fields and sanitizes checklist items", () => {
-    const source = exampleTaskTemplates.find((template) => template.id === "fajr")!
+    const source = exampleTaskTemplates.find(
+      (template) => template.id === "fajr"
+    )!
     const draft = {
       ...templateToEditorDraft(source),
       title: "صلاة الفجر المعدلة",
@@ -60,7 +63,9 @@ describe("template editor helpers", () => {
   })
 
   it("clears selected days and schedule mode when the draft does not need them", () => {
-    const source = exampleTaskTemplates.find((template) => template.id === "last-hour")!
+    const source = exampleTaskTemplates.find(
+      (template) => template.id === "last-hour"
+    )!
     const updated = applyTemplateEditorDraft(
       source,
       {
@@ -79,13 +84,12 @@ describe("template editor helpers", () => {
   it("toggles selected weekdays in sorted order", () => {
     const draft = templateToEditorDraft(exampleTaskTemplates[0]!)
 
-    expect(toggleEditorDraftDay({ ...draft, repeatDays: [4] }, 1).repeatDays).toEqual([
-      1,
-      4,
-    ])
-    expect(toggleEditorDraftDay({ ...draft, repeatDays: [1, 4] }, 4).repeatDays).toEqual([
-      1,
-    ])
+    expect(
+      toggleEditorDraftDay({ ...draft, repeatDays: [4] }, 1).repeatDays
+    ).toEqual([1, 4])
+    expect(
+      toggleEditorDraftDay({ ...draft, repeatDays: [1, 4] }, 4).repeatDays
+    ).toEqual([1])
   })
 
   it("deletes a template by id", () => {
@@ -95,14 +99,16 @@ describe("template editor helpers", () => {
   })
 
   it("round-trips stored templates for client-side persistence", () => {
-    expect(parseStoredTemplates(serializeTemplates(exampleTaskTemplates))).toEqual(
-      exampleTaskTemplates
-    )
+    expect(
+      parseStoredTemplates(serializeTemplates(exampleTaskTemplates))
+    ).toEqual(exampleTaskTemplates)
   })
 
   it("ignores invalid stored template payloads", () => {
     expect(parseStoredTemplates("not json")).toBeNull()
-    expect(parseStoredTemplates(JSON.stringify([{ title: "missing fields" }]))).toBeNull()
+    expect(
+      parseStoredTemplates(JSON.stringify([{ title: "missing fields" }]))
+    ).toBeNull()
   })
 
   it("migrates a saved template duration without replacing other edits", () => {
@@ -112,14 +118,61 @@ describe("template editor helpers", () => {
         : template
     )
 
-    const migrated = migrateTemplateDuration(
-      templates,
-      "prepare-istighfar",
-      15
-    )
+    const migrated = migrateTemplateDuration(templates, "prepare-istighfar", 15)
     const template = migrated.find((item) => item.id === "prepare-istighfar")
 
     expect(template?.title).toBe("إعداد خاص")
     expect(template?.defaultDurationMinutes).toBe(15)
+  })
+
+  it("migrates known mistaken repeat days without replacing custom edits", () => {
+    const templates = exampleTaskTemplates.map((template) => {
+      if (template.id === "sunrise-tasks") {
+        return { ...template, repeatDays: [1, 2, 3, 4, 5] as Weekday[] }
+      }
+
+      if (template.id === "dhuhr-tasks") {
+        return { ...template, repeatDays: [1, 2, 3, 4] as Weekday[] }
+      }
+
+      if (template.id === "arabic") {
+        return {
+          ...template,
+          title: "عربي معدل",
+          repeatDays: [2, 3] as Weekday[],
+        }
+      }
+
+      return template
+    })
+
+    const migrated = migrateTemplateRepeatDays(templates, [
+      {
+        templateId: "sunrise-tasks",
+        from: [1, 2, 3, 4, 5],
+        to: [0, 1, 2, 3, 4],
+      },
+      {
+        templateId: "dhuhr-tasks",
+        from: [1, 2, 3, 4],
+        to: [0, 1, 2, 3, 4],
+      },
+      {
+        templateId: "arabic",
+        from: [1, 2, 3, 4, 5],
+        to: [0, 1, 2, 3, 4],
+      },
+    ])
+
+    expect(
+      migrated.find((item) => item.id === "sunrise-tasks")?.repeatDays
+    ).toEqual([0, 1, 2, 3, 4])
+    expect(
+      migrated.find((item) => item.id === "dhuhr-tasks")?.repeatDays
+    ).toEqual([0, 1, 2, 3, 4])
+    expect(migrated.find((item) => item.id === "arabic")).toMatchObject({
+      title: "عربي معدل",
+      repeatDays: [2, 3],
+    })
   })
 })

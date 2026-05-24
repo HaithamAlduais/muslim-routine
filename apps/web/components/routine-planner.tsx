@@ -24,6 +24,7 @@ import {
 import {
   applyTemplateEditorDraft,
   deleteTemplateById,
+  migrateTemplateRepeatDays,
   migrateTemplateDuration,
   parseStoredTemplates,
   serializeTemplates,
@@ -409,8 +410,30 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
     }
 
     if (storedTemplates) {
+      const durationMigratedTemplates = migrateTemplateDuration(
+        storedTemplates,
+        "prepare-istighfar",
+        15
+      )
+
       setTemplates(
-        migrateTemplateDuration(storedTemplates, "prepare-istighfar", 15)
+        migrateTemplateRepeatDays(durationMigratedTemplates, [
+          {
+            templateId: "sunrise-tasks",
+            from: [1, 2, 3, 4, 5],
+            to: [0, 1, 2, 3, 4],
+          },
+          {
+            templateId: "dhuhr-tasks",
+            from: [1, 2, 3, 4],
+            to: [0, 1, 2, 3, 4],
+          },
+          {
+            templateId: "arabic",
+            from: [1, 2, 3, 4, 5],
+            to: [0, 1, 2, 3, 4],
+          },
+        ])
       )
     }
 

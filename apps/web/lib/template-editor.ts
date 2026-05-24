@@ -121,6 +121,30 @@ export function migrateTemplateDuration(
   )
 }
 
+export function migrateTemplateRepeatDays(
+  templates: TaskTemplate[],
+  migrations: Array<{
+    templateId: string
+    from: Weekday[]
+    to: Weekday[]
+  }>
+) {
+  return templates.map((template) => {
+    const migration = migrations.find(
+      (item) =>
+        item.templateId === template.id &&
+        sameWeekdays(template.repeatDays, item.from)
+    )
+
+    return migration
+      ? {
+          ...template,
+          repeatDays: [...migration.to],
+        }
+      : template
+  })
+}
+
 export function serializeTemplates(templates: TaskTemplate[]) {
   return JSON.stringify(templates)
 }
@@ -149,6 +173,13 @@ function sanitizeChecklist(checklist: string[]) {
 
 function uniqueSortedWeekdays(days: Weekday[]) {
   return [...new Set(days)].sort((a, b) => a - b) as Weekday[]
+}
+
+function sameWeekdays(left: Weekday[], right: Weekday[]) {
+  return (
+    left.length === right.length &&
+    left.every((day, index) => day === right[index])
+  )
 }
 
 function clampInteger(value: number, min: number, max: number) {
