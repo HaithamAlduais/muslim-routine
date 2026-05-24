@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildWeekPreview } from "./preview"
-import { seedTaskTemplates } from "./routine-data"
+import { seedCategories, seedTaskTemplates } from "./routine-data"
 
 describe("buildWeekPreview", () => {
   it("keeps every Notion routine template visible in the seeded routine", () => {
@@ -83,10 +83,20 @@ describe("buildWeekPreview", () => {
       "before-fajr": 30,
       "prepare-istighfar": 10,
       "suhoor-istighfar": 30,
+      fajr: 40,
+      dhuhr: 40,
+      asr: 40,
+      maghrib: 40,
+      isha: 40,
       "family-breakfast": 30,
       "family-lunch": 30,
       "family-dinner": 30,
     })
+
+    expect(
+      seedCategories.find((category) => category.id === "prayer")
+        ?.defaultDurationMinutes
+    ).toBe(40)
   })
 
   it("builds a seven-day prayer-block preview from the seeded routine", () => {
@@ -229,7 +239,7 @@ describe("buildWeekPreview", () => {
       {
         templateId: "friday-dhuhr-family",
         title: "العائلة",
-        startTime: "2026-05-29T12:14:00+03:00",
+        startTime: "2026-05-29T12:34:00+03:00",
       },
     ])
 
@@ -245,12 +255,12 @@ describe("buildWeekPreview", () => {
         templateId: "asr",
         title: "صلاة العصر",
         startTime: "2026-05-29T15:15:00+03:00",
-        endTime: "2026-05-29T15:35:00+03:00",
+        endTime: "2026-05-29T15:55:00+03:00",
       },
       {
         templateId: "friday-family-lunch-session",
         title: "غداء وجلسة مع العائلة",
-        startTime: "2026-05-29T15:35:00+03:00",
+        startTime: "2026-05-29T15:55:00+03:00",
         endTime: "2026-05-29T17:38:00+03:00",
       },
       {
@@ -285,13 +295,13 @@ describe("buildWeekPreview", () => {
         templateId: "dhuhr",
         title: "صلاة الظهر",
         startTime: "2026-05-30T11:54:00+03:00",
-        endTime: "2026-05-30T12:14:00+03:00",
+        endTime: "2026-05-30T12:34:00+03:00",
       },
       {
         templateId: "family-lunch",
         title: "غداء مع العائلة",
-        startTime: "2026-05-30T12:14:00+03:00",
-        endTime: "2026-05-30T12:44:00+03:00",
+        startTime: "2026-05-30T12:34:00+03:00",
+        endTime: "2026-05-30T13:04:00+03:00",
       },
     ])
 
@@ -307,13 +317,13 @@ describe("buildWeekPreview", () => {
         templateId: "asr",
         title: "صلاة العصر",
         startTime: "2026-05-30T15:15:00+03:00",
-        endTime: "2026-05-30T15:35:00+03:00",
+        endTime: "2026-05-30T15:55:00+03:00",
       },
       {
         templateId: "saturday-asr-family",
         title: "العائلة",
-        startTime: "2026-05-30T15:35:00+03:00",
-        endTime: "2026-05-30T16:35:00+03:00",
+        startTime: "2026-05-30T15:55:00+03:00",
+        endTime: "2026-05-30T16:55:00+03:00",
       },
     ])
   })
@@ -340,14 +350,21 @@ describe("buildWeekPreview", () => {
     }
   })
 
-  it("packs the Notion routine without scheduling conflicts", () => {
+  it("surfaces the Friday Maghrib overflow caused by 40-minute prayers", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
       templates: seedTaskTemplates,
     })
 
-    expect(preview.flatMap((day) => day.conflicts)).toEqual([])
+    expect(preview.flatMap((day) => day.conflicts)).toEqual([
+      expect.objectContaining({
+        date: "2026-05-29",
+        occurrenceId: "play:2026-05-29",
+        timeBlockId: "maghrib_to_isha",
+        type: "duration_exceeds_block",
+      }),
+    ])
   })
 
   it("maps Notion status blocks to the correct prayer blocks", () => {
