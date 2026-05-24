@@ -5,6 +5,7 @@ import {
   fetchPrayerDaysForPreview,
   parsePrayerTime,
 } from "./prayer-times"
+import { prayerDateTime } from "./date-utils"
 
 describe("prayer time API integration", () => {
   it("builds AlAdhan coordinate URLs with Umm Al-Qura defaults", () => {
@@ -15,6 +16,44 @@ describe("prayer time API integration", () => {
 
   it("normalizes API timings that include timezone suffixes", () => {
     expect(parsePrayerTime("03:37 (+03)")).toBe("03:37")
+  })
+
+  it("uses the prayer day timezone when formatting calendar datetimes", () => {
+    expect(
+      prayerDateTime(
+        {
+          date: "2026-05-24",
+          timezone: "Europe/London",
+          timings: {
+            Fajr: "03:00",
+            Sunrise: "05:00",
+            Dhuhr: "12:00",
+            Asr: "16:00",
+            Maghrib: "21:00",
+            Isha: "22:30",
+          },
+        },
+        "12:00"
+      )
+    ).toBe("2026-05-24T12:00:00+01:00")
+
+    expect(
+      prayerDateTime(
+        {
+          date: "2026-05-24",
+          timezone: "UTC",
+          timings: {
+            Fajr: "03:00",
+            Sunrise: "05:00",
+            Dhuhr: "12:00",
+            Asr: "16:00",
+            Maghrib: "21:00",
+            Isha: "22:30",
+          },
+        },
+        "12:00"
+      )
+    ).toBe("2026-05-24T12:00:00+00:00")
   })
 
   it("fetches previous, visible, and next prayer days for moving previews", async () => {

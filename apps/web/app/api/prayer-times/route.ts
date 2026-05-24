@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 
-import { fetchPrayerDaysForPreview } from "@/lib/prayer-times"
 import {
+  fetchPrayerDaysForPreview,
+  type PrayerApiSettings,
+} from "@/lib/prayer-times"
+import {
+  parsePrayerSettingsSearchParams,
   parsePreviewSearchParams,
   validationErrorMessage,
 } from "@/lib/request-validation"
@@ -9,9 +13,11 @@ import {
 export async function GET(request: Request) {
   const url = new URL(request.url)
   let previewWindow: ReturnType<typeof parsePreviewSearchParams>
+  let settings: PrayerApiSettings
 
   try {
     previewWindow = parsePreviewSearchParams(url.searchParams)
+    settings = parsePrayerSettingsSearchParams(url.searchParams)
   } catch (error) {
     return NextResponse.json(
       {
@@ -25,6 +31,7 @@ export async function GET(request: Request) {
     const prayerDays = await fetchPrayerDaysForPreview({
       startDate: previewWindow.startDate,
       days: previewWindow.days,
+      settings,
     })
 
     return NextResponse.json(

@@ -1,5 +1,9 @@
 import { z } from "zod"
 
+import {
+  defaultPrayerApiSettings,
+  type PrayerApiSettings,
+} from "./prayer-times"
 import type { Priority, RepeatType, ScheduleMode, TaskTemplate } from "./types"
 
 export const MAX_PREVIEW_DAYS = 14
@@ -11,6 +15,7 @@ export type PreviewWindow = {
 
 export type FillWeekRequest = PreviewWindow & {
   templates?: TaskTemplate[]
+  settings?: PrayerApiSettings
 }
 
 const weekdaySchema = z.union([
@@ -68,6 +73,18 @@ export function parsePreviewSearchParams(
   }
 }
 
+export function parsePrayerSettingsSearchParams(
+  searchParams: URLSearchParams
+): PrayerApiSettings {
+  return parsePrayerApiSettings({
+    latitude: searchParams.get("latitude") ?? undefined,
+    longitude: searchParams.get("longitude") ?? undefined,
+    method: searchParams.get("method") ?? undefined,
+    school: searchParams.get("school") ?? undefined,
+    timezone: searchParams.get("timezone") ?? undefined,
+  })
+}
+
 export function parseFillWeekRequestBody(body: unknown): FillWeekRequest {
   if (!isPlainObject(body)) {
     throwInvalid("body must be a JSON object")
@@ -89,6 +106,10 @@ export function parseFillWeekRequestBody(body: unknown): FillWeekRequest {
   return {
     startDate: parseStartDate(body.startDate),
     days: parseDays(body.days),
+    settings:
+      body.settings === undefined
+        ? undefined
+        : parsePrayerApiSettings(body.settings),
     templates,
   }
 }
@@ -124,6 +145,122 @@ function parseDays(value: unknown) {
   }
 
   return days
+}
+
+function parsePrayerApiSettings(value: unknown): PrayerApiSettings {
+  if (!isPlainObject(value)) {
+    throwInvalid("settings must be a JSON object")
+  }
+
+  return {
+    latitude: parseBoundedNumber(
+      "latitude",
+      value.latitude,
+      defaultPrayerApiSettings.latitude,
+      -90,
+      90
+    ),
+    longitude: parseBoundedNumber(
+      "longitude",
+      value.longitude,
+      defaultPrayerApiSettings.longitude,
+      -180,
+      180
+    ),
+    method: parseBoundedInteger(
+      "method",
+      value.method,
+      defaultPrayerApiSettings.method,
+      0,
+      99
+    ),
+    school: parseSchool(value.school),
+    timezone: parseTimezone(value.timezone),
+  }
+}
+
+function parseBoundedNumber(
+  name: string,
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number
+) {
+  if (value === undefined) {
+    return fallback
+  }
+
+  const number =
+    typeof value === "number" || typeof value === "string"
+      ? Number(value)
+      : Number.NaN
+
+  if (!Number.isFinite(number)) {
+    throwInvalid(`${name} must be a number`)
+  }
+
+  if (number < min || number > max) {
+    throwInvalid(`${name} must be between ${min} and ${max}`)
+  }
+
+  return number
+}
+
+function parseBoundedInteger(
+  name: string,
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number
+) {
+  const number = parseBoundedNumber(name, value, fallback, min, max)
+
+  if (!Number.isInteger(number)) {
+    throwInvalid(`${name} must be an integer`)
+  }
+
+  return number
+}
+
+function parseSchool(value: unknown): 0 | 1 {
+  if (value === undefined) {
+    return defaultPrayerApiSettings.school
+  }
+
+  const school =
+    typeof value === "number" || typeof value === "string"
+      ? Number(value)
+      : Number.NaN
+
+  if (school !== 0 && school !== 1) {
+    throwInvalid("school must be 0 or 1")
+  }
+
+  return school
+}
+
+function parseTimezone(value: unknown) {
+  if (value === undefined) {
+    return defaultPrayerApiSettings.timezone
+  }
+
+  if (typeof value !== "string") {
+    throwInvalid("timezone must be a valid IANA timezone")
+  }
+
+  const timezone = value.trim()
+
+  if (timezone.length === 0 || timezone.length > 80) {
+    throwInvalid("timezone must be a valid IANA timezone")
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date())
+  } catch {
+    throwInvalid("timezone must be a valid IANA timezone")
+  }
+
+  return timezone
 }
 
 function isValidCalendarDate(value: string) {

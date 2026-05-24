@@ -32,13 +32,14 @@ export async function POST(request: Request) {
     )
   }
 
-  const { startDate, days, templates } = body
+  const { startDate, days, templates, settings } = body
   let prayerDays: PrayerDay[]
 
   try {
     prayerDays = await fetchPrayerDaysForPreview({
       startDate,
       days,
+      settings,
     })
   } catch (error) {
     return NextResponse.json(

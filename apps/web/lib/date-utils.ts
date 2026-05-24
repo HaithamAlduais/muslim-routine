@@ -1,6 +1,6 @@
 import type { PrayerDay, Weekday } from "./types"
 
-const RIYADH_OFFSET = "+03:00"
+const DEFAULT_OFFSET = "+03:00"
 
 export function addDays(date: string, days: number) {
   const next = new Date(`${date}T00:00:00.000Z`)
@@ -21,8 +21,8 @@ export function compareDate(a: string, b: string) {
 }
 
 export function prayerDateTime(prayers: PrayerDay, time: string) {
-  const offset =
-    prayers.timezone === "Asia/Riyadh" ? RIYADH_OFFSET : RIYADH_OFFSET
+  const offset = timezoneOffset(prayers.date, time, prayers.timezone)
+
   return `${prayers.date}T${time}:00${offset}`
 }
 
@@ -53,4 +53,39 @@ export function minutesBetween(start: string, end: string) {
   const startDate = new Date(start)
   const endDate = new Date(end)
   return Math.round((endDate.getTime() - startDate.getTime()) / 60000)
+}
+
+function timezoneOffset(date: string, time: string, timeZone: string) {
+  try {
+    const referenceDate = new Date(`${date}T${time}:00.000Z`)
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "longOffset",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(referenceDate)
+    const offset = parts.find((part) => part.type === "timeZoneName")?.value
+
+    if (offset === "GMT") {
+      return "+00:00"
+    }
+
+    const match = offset?.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/)
+
+    if (!match) {
+      return DEFAULT_OFFSET
+    }
+
+    const sign = match[1]
+    const hour = match[2]!.padStart(2, "0")
+    const minute = match[3] ?? "00"
+
+    return `${sign}${hour}:${minute}`
+  } catch {
+    return DEFAULT_OFFSET
+  }
 }

@@ -10,10 +10,13 @@ describe("prayer API routes", () => {
   })
 
   it("returns API prayer days around the requested preview window", async () => {
-    vi.stubGlobal("fetch", mockPrayerFetch())
+    const fetcher = mockPrayerFetch()
+    vi.stubGlobal("fetch", fetcher)
 
     const response = await getPrayerTimes(
-      new Request("http://localhost/api/prayer-times?startDate=2026-05-24&days=1")
+      new Request(
+        "http://localhost/api/prayer-times?startDate=2026-05-24&days=1&latitude=21.3891&longitude=39.8579&method=4&school=1&timezone=Asia/Riyadh"
+      )
     )
     const body = (await response.json()) as {
       prayerDays: Array<{ date: string; timings: { Fajr: string } }>
@@ -28,6 +31,9 @@ describe("prayer API routes", () => {
       "2026-05-25",
     ])
     expect(body.prayerDays[1]!.timings.Fajr).toBe("03:37")
+    expect(fetcher.mock.calls[0]?.[0].toString()).toContain(
+      "latitude=21.3891&longitude=39.8579&method=4&school=1"
+    )
   })
 
   it("builds calendar events from prayer API timings", async () => {

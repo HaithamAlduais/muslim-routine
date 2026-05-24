@@ -35,6 +35,10 @@ import {
 import { durationLabel } from "@/lib/template-labels"
 import type { PrayerDay, RepeatType, TaskTemplate, Weekday } from "@/lib/types"
 import { buildCalendarBlockEvents } from "@/lib/calendar"
+import {
+  defaultPrayerApiSettings,
+  type PrayerApiSettings,
+} from "@/lib/prayer-times"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -104,6 +108,11 @@ type PrayerTimesState =
   | { status: "ready"; source: string }
   | { status: "error"; message: string }
 
+type PrayerSettingsDraft = PrayerApiSettings & {
+  country: string
+  city: string
+}
+
 const weekdayOptions: Array<{ value: Weekday; label: string }> = [
   { value: 0, label: "الأحد" },
   { value: 1, label: "الإثنين" },
@@ -139,10 +148,48 @@ const scheduleModeOptions: Array<{
 ]
 
 const templateStorageKey = "muslim-routine.templates.v2"
+const prayerSettingsStorageKey = "muslim-routine.prayer-settings.v1"
+
+const defaultPrayerSettings: PrayerSettingsDraft = {
+  country: "Saudi Arabia",
+  city: "Riyadh",
+  ...defaultPrayerApiSettings,
+}
+
+const prayerMethodOptions = [
+  { value: "4", label: "أم القرى - السعودية" },
+  { value: "3", label: "رابطة العالم الإسلامي" },
+  { value: "5", label: "الهيئة المصرية العامة للمساحة" },
+  { value: "2", label: "ISNA - أمريكا الشمالية" },
+  { value: "1", label: "جامعة العلوم الإسلامية - كراتشي" },
+  { value: "9", label: "الكويت" },
+  { value: "10", label: "قطر" },
+  { value: "11", label: "سنغافورة" },
+]
+
+const asrSchoolOptions = [
+  { value: "0", label: "قياسي" },
+  { value: "1", label: "حنفي" },
+]
+
+const timezoneOptions = [
+  "Asia/Riyadh",
+  "Asia/Dubai",
+  "Asia/Kuwait",
+  "Asia/Qatar",
+  "Asia/Jakarta",
+  "Asia/Kuala_Lumpur",
+  "Europe/London",
+  "Europe/Paris",
+  "America/New_York",
+  "America/Los_Angeles",
+]
 
 export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [startDate, setStartDate] = React.useState(initialStartDate)
   const [templates, setTemplates] = React.useState(defaultTaskTemplates)
+  const [prayerSettings, setPrayerSettings] =
+    React.useState(defaultPrayerSettings)
   const [prayerDays, setPrayerDays] = React.useState<PrayerDay[]>([])
   const [prayerTimesState, setPrayerTimesState] =
     React.useState<PrayerTimesState>({ status: "loading" })
@@ -162,6 +209,8 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [editingDraft, setEditingDraft] =
     React.useState<TemplateEditorDraft | null>(null)
   const [hasLoadedStoredTemplates, setHasLoadedStoredTemplates] =
+    React.useState(false)
+  const [hasLoadedPrayerSettings, setHasLoadedPrayerSettings] =
     React.useState(false)
   const hasPrayerApiTimes =
     prayerTimesState.status === "ready" && prayerDays.length > 0
@@ -193,11 +242,39 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   ).length
 
   React.useEffect(() => {
+    const storedSettings = parseStoredPrayerSettings(
+      window.localStorage.getItem(prayerSettingsStorageKey)
+    )
+
+    if (storedSettings) {
+      setPrayerSettings(storedSettings)
+    }
+
+    setHasLoadedPrayerSettings(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (!hasLoadedPrayerSettings) {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(
+        prayerSettingsStorageKey,
+        JSON.stringify(prayerSettings)
+      )
+    } catch {
+      // Keep prayer previews usable even when storage is unavailable.
+    }
+  }, [hasLoadedPrayerSettings, prayerSettings])
+
+  React.useEffect(() => {
     const controller = new AbortController()
     const params = new URLSearchParams({
       startDate,
       days: "7",
     })
+    appendPrayerSettingsParams(params, prayerSettings)
 
     setPrayerDays([])
     setPrayerTimesState({ status: "loading" })
@@ -235,7 +312,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
       })
 
     return () => controller.abort()
-  }, [startDate])
+  }, [prayerSettings, startDate])
 
   React.useEffect(() => {
     let storedTemplates: TaskTemplate[] | null = null
@@ -426,6 +503,29 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
     setExportState({ status: "idle" })
   }
 
+  function updatePrayerSettings(patch: Partial<PrayerSettingsDraft>) {
+    setPrayerSettings((current) => ({ ...current, ...patch }))
+    setExportState({ status: "idle" })
+  }
+
+  function updatePrayerSettingNumber(
+    field: "latitude" | "longitude" | "method",
+    value: string
+  ) {
+    const next = Number(value)
+
+    if (!Number.isFinite(next)) {
+      return
+    }
+
+    updatePrayerSettings({ [field]: next })
+  }
+
+  function resetPrayerSettings() {
+    setPrayerSettings(defaultPrayerSettings)
+    setExportState({ status: "idle" })
+  }
+
   async function fillCalendar() {
     setExportState({ status: "loading" })
 
@@ -433,7 +533,12 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
       const response = await fetch("/api/calendar/fill-week", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate, days: 7, templates }),
+        body: JSON.stringify({
+          startDate,
+          days: 7,
+          settings: toPrayerApiSettings(prayerSettings),
+          templates,
+        }),
       })
       const body = (await response.json()) as {
         configured?: boolean
@@ -933,7 +1038,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
           </TabsContent>
 
           <TabsContent value="settings" className="m-0">
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -941,41 +1046,227 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                     إعدادات الصلاة
                   </CardTitle>
                   <CardDescription>
-                    القيم الافتراضية مبنية على السعودية وأم القرى.
+                    غيّر موقعك وطريقة الحساب. المعاينة والتقويم يستخدمان هذه
+                    القيم مباشرة.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3 text-sm leading-6">
-                  <SettingRow label="الدولة" value="Saudi Arabia" />
-                  <SettingRow label="المدينة" value="Riyadh" />
-                  <SettingRow label="الإحداثيات" value="24.7136, 46.6753" />
-                  <SettingRow label="طريقة الحساب" value="Umm Al-Qura" />
-                  <SettingRow label="مذهب العصر" value="Standard" />
-                  <SettingRow label="مصدر الوقت" value="AlAdhan API" />
+                <CardContent className="flex flex-col gap-5">
+                  <FieldGroup>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="settings-country">
+                          الدولة
+                        </FieldLabel>
+                        <Input
+                          id="settings-country"
+                          value={prayerSettings.country}
+                          onChange={(event) =>
+                            updatePrayerSettings({
+                              country: event.target.value,
+                            })
+                          }
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="settings-city">
+                          المدينة
+                        </FieldLabel>
+                        <Input
+                          id="settings-city"
+                          value={prayerSettings.city}
+                          onChange={(event) =>
+                            updatePrayerSettings({ city: event.target.value })
+                          }
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="settings-latitude">
+                          خط العرض
+                        </FieldLabel>
+                        <Input
+                          id="settings-latitude"
+                          dir="ltr"
+                          type="number"
+                          min={-90}
+                          max={90}
+                          step="0.0001"
+                          value={prayerSettings.latitude}
+                          onChange={(event) =>
+                            updatePrayerSettingNumber(
+                              "latitude",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="settings-longitude">
+                          خط الطول
+                        </FieldLabel>
+                        <Input
+                          id="settings-longitude"
+                          dir="ltr"
+                          type="number"
+                          min={-180}
+                          max={180}
+                          step="0.0001"
+                          value={prayerSettings.longitude}
+                          onChange={(event) =>
+                            updatePrayerSettingNumber(
+                              "longitude",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <Field>
+                        <FieldLabel>طريقة الحساب</FieldLabel>
+                        <Select
+                          value={String(prayerSettings.method)}
+                          onValueChange={(value) =>
+                            updatePrayerSettingNumber("method", value)
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {prayerMethodOptions.map((method) => (
+                                <SelectItem
+                                  key={method.value}
+                                  value={method.value}
+                                >
+                                  {method.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+
+                      <Field>
+                        <FieldLabel>مذهب العصر</FieldLabel>
+                        <Select
+                          value={String(prayerSettings.school)}
+                          onValueChange={(value) =>
+                            updatePrayerSettings({
+                              school: Number(value) as PrayerApiSettings["school"],
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {asrSchoolOptions.map((school) => (
+                                <SelectItem
+                                  key={school.value}
+                                  value={school.value}
+                                >
+                                  {school.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+
+                      <Field>
+                        <FieldLabel>المنطقة الزمنية</FieldLabel>
+                        <Select
+                          value={prayerSettings.timezone}
+                          onValueChange={(timezone) =>
+                            updatePrayerSettings({ timezone })
+                          }
+                        >
+                          <SelectTrigger className="w-full" dir="ltr">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {timezoneOptions.map((timezone) => (
+                                <SelectItem key={timezone} value={timezone}>
+                                  {timezone}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+                  </FieldGroup>
+
+                  <Alert>
+                    <ClockIcon />
+                    <AlertTitle>مصدر الأوقات: AlAdhan API</AlertTitle>
+                    <AlertDescription>
+                      اسم الدولة والمدينة للتنظيم فقط حاليا؛ الحساب يعتمد على
+                      الإحداثيات وطريقة الحساب ومذهب العصر والمنطقة الزمنية.
+                    </AlertDescription>
+                  </Alert>
                 </CardContent>
+                <CardFooter className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <Badge variant="secondary">محفوظ محليا</Badge>
+                    <Badge variant="outline" dir="ltr">
+                      {prayerSettings.latitude}, {prayerSettings.longitude}
+                    </Badge>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetPrayerSettings}
+                  >
+                    <RefreshCwIcon data-icon="inline-start" />
+                    استعادة إعدادات الرياض
+                  </Button>
+                </CardFooter>
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle>إعدادات Google</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarCheckIcon data-icon="inline-start" />
+                    إعدادات Google Calendar
+                  </CardTitle>
                   <CardDescription>
-                    لا تحفظ المفاتيح داخل الكود. استخدم متغيرات البيئة فقط.
+                    الربط الحقيقي يتم من متغيرات البيئة في السيرفر فقط.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3 text-sm leading-6 text-muted-foreground">
-                  <p>
-                    GOOGLE_SERVICE_ACCOUNT_FILE أو GOOGLE_SERVICE_ACCOUNT_JSON
+                <CardContent className="flex flex-col gap-4 text-sm leading-6">
+                  <ConfigRow
+                    label="ملف حساب الخدمة"
+                    value="GOOGLE_SERVICE_ACCOUNT_FILE"
+                  />
+                  <ConfigRow
+                    label="أو JSON حساب الخدمة"
+                    value="GOOGLE_SERVICE_ACCOUNT_JSON"
+                  />
+                  <ConfigRow
+                    label="معرف التقويم"
+                    value="GOOGLE_CALENDAR_ID"
+                  />
+                  <Separator />
+                  <p className="text-muted-foreground">
+                    شارك التقويم مع بريد Service Account بصلاحية تعديل
+                    الأحداث. معرف التقويم هو Calendar ID من قسم Integrate
+                    calendar، وليس Unique ID أو Client ID لحساب الخدمة.
                   </p>
-                  <p>
-                    شارك التقويم مع بريد Service Account بصلاحية تعديل الأحداث.
-                  </p>
-                  <p>
-                    GOOGLE_CALENDAR_ID يؤخذ من إعدادات Google Calendar ثم
-                    Integrate calendar، وليس Unique ID أو Client ID لحساب
-                    الخدمة.
-                  </p>
-                  <p>
-                    NEXT_PUBLIC_SUPABASE_URL و
-                    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-                  </p>
+                  <Alert>
+                    <ListChecksIcon />
+                    <AlertTitle>لا تضع المفاتيح في المتصفح</AlertTitle>
+                    <AlertDescription>
+                      مفاتيح Google الخاصة تبقى في متغيرات السيرفر. مفاتيح
+                      Supabase العامة فقط يمكن أن تبدأ بـ NEXT_PUBLIC.
+                    </AlertDescription>
+                  </Alert>
                 </CardContent>
               </Card>
             </section>
@@ -1509,13 +1800,132 @@ function DayPreview({
   )
 }
 
-function SettingRow({ label, value }: { label: string; value: string }) {
+function ConfigRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-col gap-1 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
       <span className="text-muted-foreground">{label}</span>
-      <Badge variant="secondary">{value}</Badge>
+      <code
+        className="break-all rounded-md bg-muted px-2 py-1 font-mono text-xs text-muted-foreground"
+        dir="ltr"
+      >
+        {value}
+      </code>
     </div>
   )
+}
+
+function toPrayerApiSettings(
+  settings: PrayerSettingsDraft
+): PrayerApiSettings {
+  return {
+    latitude: settings.latitude,
+    longitude: settings.longitude,
+    method: settings.method,
+    school: settings.school,
+    timezone: settings.timezone,
+  }
+}
+
+function appendPrayerSettingsParams(
+  params: URLSearchParams,
+  settings: PrayerSettingsDraft
+) {
+  const apiSettings = toPrayerApiSettings(settings)
+
+  params.set("latitude", apiSettings.latitude.toString())
+  params.set("longitude", apiSettings.longitude.toString())
+  params.set("method", apiSettings.method.toString())
+  params.set("school", apiSettings.school.toString())
+  params.set("timezone", apiSettings.timezone)
+}
+
+function parseStoredPrayerSettings(value: string | null) {
+  if (!value) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<PrayerSettingsDraft>
+
+    if (typeof parsed !== "object" || parsed === null) {
+      return null
+    }
+
+    return {
+      country:
+        typeof parsed.country === "string" && parsed.country.trim()
+          ? parsed.country
+          : defaultPrayerSettings.country,
+      city:
+        typeof parsed.city === "string" && parsed.city.trim()
+          ? parsed.city
+          : defaultPrayerSettings.city,
+      latitude: numberInRange(
+        parsed.latitude,
+        -90,
+        90,
+        defaultPrayerSettings.latitude
+      ),
+      longitude: numberInRange(
+        parsed.longitude,
+        -180,
+        180,
+        defaultPrayerSettings.longitude
+      ),
+      method: integerInRange(
+        parsed.method,
+        0,
+        99,
+        defaultPrayerSettings.method
+      ),
+      school:
+        parsed.school === 0 || parsed.school === 1
+          ? parsed.school
+          : defaultPrayerSettings.school,
+      timezone: isValidTimezone(parsed.timezone)
+        ? parsed.timezone
+        : defaultPrayerSettings.timezone,
+    } satisfies PrayerSettingsDraft
+  } catch {
+    return null
+  }
+}
+
+function numberInRange(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number
+) {
+  const number = Number(value)
+
+  return Number.isFinite(number) && number >= min && number <= max
+    ? number
+    : fallback
+}
+
+function integerInRange(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number
+) {
+  const number = numberInRange(value, min, max, fallback)
+
+  return Number.isInteger(number) ? number : fallback
+}
+
+function isValidTimezone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 80) {
+    return false
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date())
+    return true
+  } catch {
+    return false
+  }
 }
 
 function blockLabel(blockId: string) {
