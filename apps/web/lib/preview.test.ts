@@ -17,8 +17,10 @@ describe("buildWeekPreview", () => {
       "انجليزي",
       "نوم",
       "فطور مع الأسرة",
+      "مهام",
       "صلاة الظهر",
       "غداء مع العائلة",
+      "مهام",
       "صلاة العصر",
       "الأسرة",
       "العائلة",
@@ -34,8 +36,8 @@ describe("buildWeekPreview", () => {
     ])
   })
 
-  it("keeps 23 templates while preserving selected-day repeat rules", () => {
-    expect(seedTaskTemplates).toHaveLength(23)
+  it("keeps 25 templates while preserving selected-day repeat rules", () => {
+    expect(seedTaskTemplates).toHaveLength(25)
 
     expect(
       seedTaskTemplates
@@ -92,7 +94,7 @@ describe("buildWeekPreview", () => {
       preview.map((day) =>
         day.blocks.reduce((total, block) => total + block.occurrences.length, 0)
       )
-    ).toEqual([15, 13, 15, 15, 13, 16, 16])
+    ).toEqual([17, 15, 17, 17, 15, 18, 18])
 
     const datesForTemplate = (templateId: string) =>
       preview.flatMap((day) =>
@@ -190,10 +192,12 @@ describe("buildWeekPreview", () => {
     ])
     expect(titlesByBlock.get("sunrise_to_dhuhr")).toEqual([
       "فطور مع الأسرة",
+      "مهام",
     ])
     expect(titlesByBlock.get("dhuhr_to_asr")).toEqual([
       "صلاة الظهر",
       "غداء مع العائلة",
+      "مهام",
     ])
     expect(titlesByBlock.get("asr_to_maghrib")).toEqual([
       "صلاة العصر",

@@ -41,6 +41,14 @@ export const seedCategories: Category[] = [
     defaultDurationMinutes: 50,
     defaultPriority: "medium",
   },
+  {
+    id: "tasks",
+    nameAr: "مهام",
+    icon: "list-checks",
+    color: "zinc",
+    defaultDurationMinutes: 60,
+    defaultPriority: "medium",
+  },
 ]
 
 export const seedTimeBlocks: TimeBlock[] = [
@@ -257,6 +265,21 @@ export const seedTaskTemplates: TaskTemplate[] = [
     sortOrder: 50,
   }),
   taskTemplate({
+    id: "sunrise-tasks",
+    title: "مهام",
+    categoryId: "tasks",
+    defaultTimeBlockId: "sunrise_to_dhuhr",
+    defaultDurationMinutes: 60,
+    defaultPriority: "medium",
+    repeatType: "daily",
+    repeatDays: [],
+    notes: "",
+    checklist: [],
+    color: "zinc",
+    includeInCalendar: true,
+    sortOrder: 60,
+  }),
+  taskTemplate({
     id: "dhuhr",
     title: "صلاة الظهر",
     categoryId: "prayer",
@@ -285,6 +308,21 @@ export const seedTaskTemplates: TaskTemplate[] = [
     color: "amber",
     includeInCalendar: true,
     sortOrder: 20,
+  }),
+  taskTemplate({
+    id: "dhuhr-tasks",
+    title: "مهام",
+    categoryId: "tasks",
+    defaultTimeBlockId: "dhuhr_to_asr",
+    defaultDurationMinutes: 60,
+    defaultPriority: "medium",
+    repeatType: "daily",
+    repeatDays: [],
+    notes: "",
+    checklist: [],
+    color: "zinc",
+    includeInCalendar: true,
+    sortOrder: 30,
   }),
   taskTemplate({
     id: "asr",
