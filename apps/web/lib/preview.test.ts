@@ -46,7 +46,19 @@ describe("buildWeekPreview", () => {
         }))
     ).toEqual([
       { title: "سحور+استغفار", repeatDays: [1, 4] },
+      { title: "إعداد+استغفار", repeatDays: [0, 2, 3, 5, 6] },
+      { title: "رياضة", repeatDays: [0, 2, 3] },
+      { title: "انجليزي", repeatDays: [1, 4] },
+      { title: "نوم", repeatDays: [5, 6] },
+      { title: "فطور مع الأسرة", repeatDays: [0, 2, 3, 5, 6] },
+      { title: "غداء مع العائلة", repeatDays: [0, 2, 3, 5, 6] },
+      { title: "الأسرة", repeatDays: [0, 1, 2, 3, 4] },
+      { title: "العائلة", repeatDays: [6] },
+      { title: "آخر ساعة", repeatDays: [5] },
       { title: "لعب", repeatDays: [5, 6] },
+      { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [4] },
+      { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [5] },
+      { title: "نوم", repeatDays: [0, 1, 2, 3, 6] },
     ])
   })
 
@@ -80,19 +92,67 @@ describe("buildWeekPreview", () => {
       preview.map((day) =>
         day.blocks.reduce((total, block) => total + block.occurrences.length, 0)
       )
-    ).toEqual([21, 22, 21, 21, 22, 22, 22])
+    ).toEqual([15, 13, 15, 15, 13, 16, 16])
 
-    const datesForTitle = (title: string) =>
+    const datesForTemplate = (templateId: string) =>
       preview.flatMap((day) =>
         day.blocks.flatMap((block) =>
           block.occurrences
-            .filter((occurrence) => occurrence.title === title)
+            .filter((occurrence) => occurrence.templateId === templateId)
             .map((occurrence) => occurrence.date)
         )
       )
 
-    expect(datesForTitle("سحور+استغفار")).toEqual(["2026-05-25", "2026-05-28"])
-    expect(datesForTitle("لعب")).toEqual(["2026-05-29", "2026-05-30"])
+    const expectedDates = {
+      "suhoor-istighfar": ["2026-05-25", "2026-05-28"],
+      "prepare-istighfar": [
+        "2026-05-24",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-29",
+        "2026-05-30",
+      ],
+      exercise: ["2026-05-24", "2026-05-26", "2026-05-27"],
+      english: ["2026-05-25", "2026-05-28"],
+      "morning-sleep": ["2026-05-29", "2026-05-30"],
+      "family-breakfast": [
+        "2026-05-24",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-29",
+        "2026-05-30",
+      ],
+      "family-lunch": [
+        "2026-05-24",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-29",
+        "2026-05-30",
+      ],
+      "family-core": [
+        "2026-05-24",
+        "2026-05-25",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-28",
+      ],
+      "extended-family": ["2026-05-30"],
+      "last-hour": ["2026-05-29"],
+      play: ["2026-05-29", "2026-05-30"],
+      "friends-family-first": ["2026-05-28"],
+      "friends-family-second": ["2026-05-29"],
+      "night-sleep": [
+        "2026-05-24",
+        "2026-05-25",
+        "2026-05-26",
+        "2026-05-27",
+        "2026-05-30",
+      ],
+    }
+
+    for (const [templateId, dates] of Object.entries(expectedDates)) {
+      expect(datesForTemplate(templateId)).toEqual(dates)
+    }
   })
 
   it("packs the Notion routine without scheduling conflicts", () => {
@@ -127,15 +187,26 @@ describe("buildWeekPreview", () => {
     expect(titlesByBlock.get("fajr_to_sunrise")).toEqual([
       "صلاة الفجر",
       "رياضة",
-      "انجليزي",
     ])
     expect(titlesByBlock.get("sunrise_to_dhuhr")).toEqual([
-      "نوم",
       "فطور مع الأسرة",
+    ])
+    expect(titlesByBlock.get("dhuhr_to_asr")).toEqual([
+      "صلاة الظهر",
+      "غداء مع العائلة",
+    ])
+    expect(titlesByBlock.get("asr_to_maghrib")).toEqual([
+      "صلاة العصر",
+      "الأسرة",
     ])
     expect(titlesByBlock.get("maghrib_to_isha")).toEqual([
       "صلاة المغرب",
       "عربي",
+    ])
+    expect(titlesByBlock.get("isha_to_sleep")).toEqual([
+      "صلاة العشاء",
+      "عشاء مع العائلة",
+      "نوم",
     ])
   })
 })
