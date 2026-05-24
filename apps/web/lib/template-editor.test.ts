@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   applyTemplateEditorDraft,
   deleteTemplateById,
+  migrateTemplateDuration,
   parseStoredTemplates,
   serializeTemplates,
   templateToEditorDraft,
@@ -102,5 +103,23 @@ describe("template editor helpers", () => {
   it("ignores invalid stored template payloads", () => {
     expect(parseStoredTemplates("not json")).toBeNull()
     expect(parseStoredTemplates(JSON.stringify([{ title: "missing fields" }]))).toBeNull()
+  })
+
+  it("migrates a saved template duration without replacing other edits", () => {
+    const templates = seedTaskTemplates.map((template) =>
+      template.id === "prepare-istighfar"
+        ? { ...template, title: "إعداد خاص", defaultDurationMinutes: 10 }
+        : template
+    )
+
+    const migrated = migrateTemplateDuration(
+      templates,
+      "prepare-istighfar",
+      15
+    )
+    const template = migrated.find((item) => item.id === "prepare-istighfar")
+
+    expect(template?.title).toBe("إعداد خاص")
+    expect(template?.defaultDurationMinutes).toBe(15)
   })
 })

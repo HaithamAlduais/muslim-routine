@@ -162,7 +162,7 @@ export const seedTaskTemplates: TaskTemplate[] = [
     title: "إعداد+استغفار",
     categoryId: "worship",
     defaultTimeBlockId: "last_sixth_to_fajr",
-    defaultDurationMinutes: 10,
+    defaultDurationMinutes: 15,
     defaultPriority: "high",
     repeatType: "selected_days",
     repeatDays: [0, 2, 3, 5, 6],

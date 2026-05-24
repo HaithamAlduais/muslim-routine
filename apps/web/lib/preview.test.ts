@@ -81,7 +81,7 @@ describe("buildWeekPreview", () => {
 
     expect(durations).toMatchObject({
       "before-fajr": 30,
-      "prepare-istighfar": 10,
+      "prepare-istighfar": 15,
       "suhoor-istighfar": 30,
       fajr: 40,
       dhuhr: 40,

@@ -106,6 +106,21 @@ export function deleteTemplateById(
   return templates.filter((template) => template.id !== templateId)
 }
 
+export function migrateTemplateDuration(
+  templates: TaskTemplate[],
+  templateId: string,
+  durationMinutes: number
+) {
+  return templates.map((template) =>
+    template.id === templateId
+      ? {
+          ...template,
+          defaultDurationMinutes: durationMinutes,
+        }
+      : template
+  )
+}
+
 export function serializeTemplates(templates: TaskTemplate[]) {
   return JSON.stringify(templates)
 }

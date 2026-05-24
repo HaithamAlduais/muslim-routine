@@ -18,6 +18,7 @@ import { buildLiveWeekPreview } from "@/lib/live-preview"
 import {
   applyTemplateEditorDraft,
   deleteTemplateById,
+  migrateTemplateDuration,
   parseStoredTemplates,
   serializeTemplates,
   templateToEditorDraft,
@@ -247,7 +248,9 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
     }
 
     if (storedTemplates) {
-      setTemplates(storedTemplates)
+      setTemplates(
+        migrateTemplateDuration(storedTemplates, "prepare-istighfar", 15)
+      )
     }
 
     setHasLoadedStoredTemplates(true)
