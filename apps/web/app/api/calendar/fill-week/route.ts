@@ -7,9 +7,11 @@ import {
   toGoogleCalendarEventResource,
 } from "@/lib/google-calendar"
 import { buildWeekPreview } from "@/lib/preview"
+import { fetchPrayerDaysForPreview } from "@/lib/prayer-times"
 import type {
   CalendarBlockEvent,
   CalendarExportRecord,
+  PrayerDay,
   TaskTemplate,
 } from "@/lib/types"
 
@@ -21,9 +23,29 @@ export async function POST(request: Request) {
   }
   const startDate = body.startDate ?? new Date().toISOString().slice(0, 10)
   const days = body.days ?? 7
+  let prayerDays: PrayerDay[]
+
+  try {
+    prayerDays = await fetchPrayerDaysForPreview({
+      startDate,
+      days,
+    })
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to fetch prayer times.",
+      },
+      { status: 502 }
+    )
+  }
+
   const preview = buildWeekPreview({
     startDate,
     days,
+    prayerDays,
     templates: body.templates,
   })
   const events = await buildCalendarBlockEvents(preview)

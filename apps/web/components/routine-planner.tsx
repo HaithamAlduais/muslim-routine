@@ -17,7 +17,7 @@ import {
   seedTimeBlocks,
 } from "@/lib/routine-data"
 import { durationLabel } from "@/lib/template-labels"
-import type { RepeatType, Weekday } from "@/lib/types"
+import type { PrayerDay, RepeatType, Weekday } from "@/lib/types"
 import { buildCalendarBlockEvents } from "@/lib/calendar"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -74,6 +74,11 @@ type ExportState =
   | { status: "ready"; message: string; configured: boolean }
   | { status: "error"; message: string }
 
+type PrayerTimesState =
+  | { status: "loading" }
+  | { status: "ready"; source: string }
+  | { status: "error"; message: string }
+
 const weekdayOptions: Array<{ value: Weekday; label: string }> = [
   { value: 0, label: "الأحد" },
   { value: 1, label: "الإثنين" },
@@ -87,6 +92,9 @@ const weekdayOptions: Array<{ value: Weekday; label: string }> = [
 export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [startDate, setStartDate] = React.useState(initialStartDate)
   const [templates, setTemplates] = React.useState(seedTaskTemplates)
+  const [prayerDays, setPrayerDays] = React.useState<PrayerDay[]>([])
+  const [prayerTimesState, setPrayerTimesState] =
+    React.useState<PrayerTimesState>({ status: "loading" })
   const [draft, setDraft] = React.useState({
     title: "",
     timeBlockId: "fajr_to_sunrise",
@@ -106,9 +114,10 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
       buildWeekPreview({
         startDate,
         days: 7,
+        prayerDays: prayerDays.length ? prayerDays : undefined,
         templates,
       }),
-    [startDate, templates]
+    [prayerDays, startDate, templates]
   )
 
   const calendarEvents = React.useMemo(
@@ -124,6 +133,51 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const activeTemplateCount = templates.filter(
     (template) => template.isActive
   ).length
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+    const params = new URLSearchParams({
+      startDate,
+      days: "7",
+    })
+
+    setPrayerDays([])
+    setPrayerTimesState({ status: "loading" })
+
+    fetch(`/api/prayer-times?${params.toString()}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          message?: string
+          prayerDays?: PrayerDay[]
+          source?: string
+        }
+
+        if (!response.ok || !body.prayerDays) {
+          throw new Error(body.message ?? "تعذر جلب أوقات الصلاة.")
+        }
+
+        setPrayerDays(body.prayerDays)
+        setPrayerTimesState({
+          status: "ready",
+          source: body.source ?? "aladhan",
+        })
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return
+        }
+
+        setPrayerTimesState({
+          status: "error",
+          message:
+            error instanceof Error ? error.message : "تعذر جلب أوقات الصلاة.",
+        })
+      })
+
+    return () => controller.abort()
+  }, [startDate])
 
   function addTemplate() {
     const title = draft.title.trim()
@@ -289,15 +343,18 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                   </FieldGroup>
                 </CardContent>
                 <CardFooter>
-                  <Button
-                    type="button"
-                    className="w-full"
-                    onClick={() => setStartDate(initialStartDate)}
-                    variant="outline"
-                  >
-                    <RefreshCwIcon data-icon="inline-start" />
-                    اليوم
-                  </Button>
+                  <div className="flex w-full flex-col gap-3">
+                    <PrayerTimesStatus state={prayerTimesState} />
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={() => setStartDate(initialStartDate)}
+                      variant="outline"
+                    >
+                      <RefreshCwIcon data-icon="inline-start" />
+                      اليوم
+                    </Button>
+                  </div>
                 </CardFooter>
               </Card>
 
@@ -644,8 +701,10 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                 <CardContent className="flex flex-col gap-3 text-sm leading-6">
                   <SettingRow label="الدولة" value="Saudi Arabia" />
                   <SettingRow label="المدينة" value="Riyadh" />
+                  <SettingRow label="الإحداثيات" value="24.7136, 46.6753" />
                   <SettingRow label="طريقة الحساب" value="Umm Al-Qura" />
                   <SettingRow label="مذهب العصر" value="Standard" />
+                  <SettingRow label="مصدر الوقت" value="AlAdhan API" />
                 </CardContent>
               </Card>
               <Card>
@@ -687,6 +746,30 @@ function Metric({ label, value }: { label: string; value: string }) {
       <div className="text-lg font-semibold">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </div>
+  )
+}
+
+function PrayerTimesStatus({ state }: { state: PrayerTimesState }) {
+  if (state.status === "ready") {
+    return (
+      <Badge variant="secondary" className="justify-center">
+        AlAdhan API
+      </Badge>
+    )
+  }
+
+  if (state.status === "error") {
+    return (
+      <Badge variant="destructive" className="justify-center">
+        {state.message}
+      </Badge>
+    )
+  }
+
+  return (
+    <Badge variant="outline" className="justify-center">
+      جاري جلب أوقات الصلاة
+    </Badge>
   )
 }
 
