@@ -33,6 +33,8 @@ For Google Calendar service-account testing:
 2. Set `GOOGLE_SERVICE_ACCOUNT_FILE` to the absolute local JSON path.
 3. Set `GOOGLE_CALENDAR_ID` to the shared calendar ID.
 
+`GOOGLE_CALENDAR_ID` comes from Google Calendar settings under **Integrate calendar**. It is usually an email-like value for a primary calendar or a long `...@group.calendar.google.com` value for a secondary calendar. Do not use the service account **Unique ID** or **Client ID** as the calendar ID.
+
 Never commit `.env.local`, service-account JSON, or Supabase service-role keys.
 
 ## Verification

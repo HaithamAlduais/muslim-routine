@@ -651,7 +651,14 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                   <p>
                     GOOGLE_SERVICE_ACCOUNT_FILE أو GOOGLE_SERVICE_ACCOUNT_JSON
                   </p>
-                  <p>GOOGLE_CALENDAR_ID</p>
+                  <p>
+                    شارك التقويم مع بريد Service Account بصلاحية تعديل الأحداث.
+                  </p>
+                  <p>
+                    GOOGLE_CALENDAR_ID يؤخذ من إعدادات Google Calendar ثم
+                    Integrate calendar، وليس Unique ID أو Client ID لحساب
+                    الخدمة.
+                  </p>
                   <p>
                     NEXT_PUBLIC_SUPABASE_URL و
                     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
