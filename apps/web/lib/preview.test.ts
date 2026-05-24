@@ -8,13 +8,13 @@ describe("buildWeekPreview", () => {
     const titles = seedTaskTemplates.map((template) => template.title)
 
     expect(titles).toEqual([
-      "قبل",
+      "قيام",
       "سحور+استغفار",
       "إعداد+استغفار",
       "تطوير",
       "صلاة الفجر",
       "رياضة",
-      "إنجليزي",
+      "انجليزي",
       "نوم",
       "فطور مع الأسرة",
       "صلاة الظهر",
@@ -25,13 +25,30 @@ describe("buildWeekPreview", () => {
       "آخر ساعة",
       "صلاة المغرب",
       "عربي",
-      "نوم",
+      "لعب",
       "صلاة العشاء",
       "عشاء مع العائلة",
       "الأصدقاء + الأسرة + العائلة",
       "الأصدقاء + الأسرة + العائلة",
       "نوم",
     ])
+  })
+
+  it("uses Notion repeat settings so all 23 templates repeat daily", () => {
+    expect(seedTaskTemplates).toHaveLength(23)
+    expect(
+      seedTaskTemplates.map((template) => ({
+        title: template.title,
+        repeatType: template.repeatType,
+        repeatDays: template.repeatDays,
+      }))
+    ).toEqual(
+      seedTaskTemplates.map((template) => ({
+        title: template.title,
+        repeatType: "daily",
+        repeatDays: [],
+      }))
+    )
   })
 
   it("builds a seven-day prayer-block preview from the seeded routine", () => {
@@ -53,21 +70,73 @@ describe("buildWeekPreview", () => {
     ).toContain("صلاة الفجر")
   })
 
-  it("keeps suhoor selected to Monday and Thursday in the generated week", () => {
+  it("generates all 23 Notion tasks on every day of the week", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
       templates: seedTaskTemplates,
     })
 
-    const suhoorDates = preview.flatMap((day) =>
-      day.blocks.flatMap((block) =>
-        block.occurrences
-          .filter((occurrence) => occurrence.title === "سحور+استغفار")
-          .map((occurrence) => occurrence.date)
+    expect(
+      preview.map((day) =>
+        day.blocks.reduce((total, block) => total + block.occurrences.length, 0)
       )
+    ).toEqual([23, 23, 23, 23, 23, 23, 23])
+
+    expect(
+      preview.map((day) =>
+        day.blocks.some((block) =>
+          block.occurrences.some(
+            (occurrence) => occurrence.title === "سحور+استغفار"
+          )
+        )
+      )
+    ).toEqual([true, true, true, true, true, true, true])
+  })
+
+  it("packs the Notion routine without scheduling conflicts", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-24",
+      days: 7,
+      templates: seedTaskTemplates,
+    })
+
+    expect(preview.flatMap((day) => day.conflicts)).toEqual([])
+  })
+
+  it("maps Notion status blocks to the correct prayer blocks", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-24",
+      days: 1,
+      templates: seedTaskTemplates,
+    })
+
+    const titlesByBlock = new Map(
+      preview[0]!.blocks.map((block) => [
+        block.timeBlockId,
+        block.occurrences.map((occurrence) => occurrence.title),
+      ])
     )
 
-    expect(suhoorDates).toEqual(["2026-05-25", "2026-05-28"])
+    expect(titlesByBlock.get("last_sixth_to_fajr")).toEqual([
+      "قيام",
+      "سحور+استغفار",
+      "إعداد+استغفار",
+      "تطوير",
+    ])
+    expect(titlesByBlock.get("fajr_to_sunrise")).toEqual([
+      "صلاة الفجر",
+      "رياضة",
+      "انجليزي",
+    ])
+    expect(titlesByBlock.get("sunrise_to_dhuhr")).toEqual([
+      "نوم",
+      "فطور مع الأسرة",
+    ])
+    expect(titlesByBlock.get("maghrib_to_isha")).toEqual([
+      "صلاة المغرب",
+      "عربي",
+      "لعب",
+    ])
   })
 })
