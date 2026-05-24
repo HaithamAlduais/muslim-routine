@@ -11,6 +11,7 @@ type AutoPackDayInput = {
   date: string
   prayers: PrayerDay
   previousPrayers?: PrayerDay
+  nextPrayers?: PrayerDay
   timeBlocks: TimeBlock[]
   occurrences: TaskOccurrence[]
 }
@@ -25,6 +26,7 @@ export function autoPackDay({
   date,
   prayers,
   previousPrayers,
+  nextPrayers,
   timeBlocks,
   occurrences,
 }: AutoPackDayInput): PackedDay {
@@ -36,11 +38,11 @@ export function autoPackDay({
       prayers,
       previousPrayers
     )
-    const endTime = resolveBlockTime(
+    const endTime = resolveBlockEndTime(
       block.endSource,
       block.fixedEnd,
       prayers,
-      previousPrayers
+      nextPrayers
     )
     const blockOccurrences = occurrences
       .filter(
@@ -198,6 +200,23 @@ function resolveBlockTime(
   return prayerDateTime(prayers, prayers.timings[source])
 }
 
+function resolveBlockEndTime(
+  source: TimeBlock["endSource"],
+  fixedTime: string | undefined,
+  prayers: PrayerDay,
+  nextPrayers: PrayerDay | undefined
+) {
+  if (source === "fixed" || source === "custom") {
+    return prayerDateTime(prayers, fixedTime ?? "00:00")
+  }
+
+  if (source === "last_sixth") {
+    return resolveNextLastSixthStart(prayers, nextPrayers)
+  }
+
+  return prayerDateTime(prayers, prayers.timings[source])
+}
+
 function resolveLastSixthStart(
   prayers: PrayerDay,
   previousPrayers: PrayerDay | undefined
@@ -209,6 +228,22 @@ function resolveLastSixthStart(
         prayers.timings.Maghrib
       )
   const nightEnd = prayerDateTime(prayers, prayers.timings.Fajr)
+  const nightMinutes = minutesBetween(nightStart, nightEnd)
+  const lastSixthMinutes = Math.round(nightMinutes / 6)
+
+  return addMinutes(nightEnd, -lastSixthMinutes)
+}
+
+function resolveNextLastSixthStart(
+  prayers: PrayerDay,
+  nextPrayers: PrayerDay | undefined
+) {
+  const followingPrayers = nextPrayers ?? {
+    ...prayers,
+    date: addDays(prayers.date, 1),
+  }
+  const nightStart = prayerDateTime(prayers, prayers.timings.Maghrib)
+  const nightEnd = prayerDateTime(followingPrayers, followingPrayers.timings.Fajr)
   const nightMinutes = minutesBetween(nightStart, nightEnd)
   const lastSixthMinutes = Math.round(nightMinutes / 6)
 

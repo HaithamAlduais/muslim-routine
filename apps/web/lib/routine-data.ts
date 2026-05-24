@@ -102,12 +102,11 @@ export const seedTimeBlocks: TimeBlock[] = [
   },
   {
     id: "isha_to_sleep",
-    nameAr: "العشاء إلى النوم / السدس",
+    nameAr: "العشاء إلى السدس",
     sortOrder: 70,
     color: "slate",
     startSource: "Isha",
-    endSource: "fixed",
-    fixedEnd: "23:30",
+    endSource: "last_sixth",
   },
 ]
 

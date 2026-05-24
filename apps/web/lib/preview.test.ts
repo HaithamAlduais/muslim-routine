@@ -433,4 +433,23 @@ describe("buildWeekPreview", () => {
       "نوم",
     ])
   })
+
+  it("names the Isha block as Isha to last sixth and ends at the next calculated sixth", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-24",
+      days: 2,
+      templates: seedTaskTemplates,
+    })
+    const sundayIsha = preview[0]!.blocks.find(
+      (block) => block.timeBlockId === "isha_to_sleep"
+    )!
+    const mondayLastSixth = preview[1]!.blocks.find(
+      (block) => block.timeBlockId === "last_sixth_to_fajr"
+    )!
+
+    expect(sundayIsha.nameAr).toBe("العشاء إلى السدس")
+    expect(sundayIsha.startTime).toBe("2026-05-24T20:08:00+03:00")
+    expect(sundayIsha.endTime).toBe(mondayLastSixth.startTime)
+    expect(sundayIsha.endTime).toBe("2026-05-25T02:37:00+03:00")
+  })
 })

@@ -31,6 +31,15 @@ const lastSixthBlock: TimeBlock = {
   endSource: "Fajr",
 }
 
+const ishaToLastSixthBlock: TimeBlock = {
+  id: "isha_to_sleep",
+  nameAr: "العشاء إلى السدس",
+  sortOrder: 70,
+  color: "slate",
+  startSource: "Isha",
+  endSource: "last_sixth",
+}
+
 const prayers: PrayerDay = {
   date: "2026-05-24",
   timezone: "Asia/Riyadh",
@@ -54,6 +63,19 @@ const previousPrayers: PrayerDay = {
     Asr: "15:15",
     Maghrib: "18:36",
     Isha: "20:07",
+  },
+}
+
+const nextPrayers: PrayerDay = {
+  date: "2026-05-25",
+  timezone: "Asia/Riyadh",
+  timings: {
+    Fajr: "04:13",
+    Sunrise: "05:38",
+    Dhuhr: "11:54",
+    Asr: "15:15",
+    Maghrib: "18:38",
+    Isha: "20:08",
   },
 }
 
@@ -131,6 +153,22 @@ describe("routine scheduling", () => {
     expect(packed.blocks[0]).toMatchObject({
       startTime: "2026-05-24T02:36:00+03:00",
       endTime: "2026-05-24T04:12:00+03:00",
+    })
+  })
+
+  it("connects the Isha block to the next calculated last sixth", () => {
+    const packed = autoPackDay({
+      date: "2026-05-24",
+      prayers,
+      nextPrayers,
+      timeBlocks: [ishaToLastSixthBlock],
+      occurrences: [],
+    })
+
+    expect(packed.blocks[0]).toMatchObject({
+      nameAr: "العشاء إلى السدس",
+      startTime: "2026-05-24T20:08:00+03:00",
+      endTime: "2026-05-25T02:37:00+03:00",
     })
   })
 

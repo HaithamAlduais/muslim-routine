@@ -39,7 +39,7 @@ export type TimeBlock = {
   sortOrder: number
   color: string
   startSource: PrayerName | "fixed" | "custom" | "last_sixth"
-  endSource: PrayerName | "fixed" | "custom"
+  endSource: PrayerName | "fixed" | "custom" | "last_sixth"
   fixedStart?: string
   fixedEnd?: string
 }
