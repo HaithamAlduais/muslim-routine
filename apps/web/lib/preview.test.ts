@@ -21,10 +21,11 @@ describe("buildWeekPreview", () => {
       "صلاة الظهر",
       "غداء مع العائلة",
       "مهام",
+      "العائلة",
       "صلاة العصر",
       "الأسرة",
       "غداء وجلسة مع العائلة",
-      "مهام",
+      "العائلة",
       "آخر ساعة",
       "صلاة المغرب",
       "عربي",
@@ -37,8 +38,8 @@ describe("buildWeekPreview", () => {
     ])
   })
 
-  it("keeps 26 templates while preserving selected-day repeat rules", () => {
-    expect(seedTaskTemplates).toHaveLength(26)
+  it("keeps 27 templates while preserving selected-day repeat rules", () => {
+    expect(seedTaskTemplates).toHaveLength(27)
 
     expect(
       seedTaskTemplates
@@ -55,10 +56,11 @@ describe("buildWeekPreview", () => {
       { title: "نوم", repeatDays: [5, 6] },
       { title: "فطور مع الأسرة", repeatDays: [0, 2, 3, 5, 6] },
       { title: "غداء مع العائلة", repeatDays: [0, 2, 3, 6] },
-      { title: "مهام", repeatDays: [0, 1, 2, 3, 4, 5] },
+      { title: "مهام", repeatDays: [0, 1, 2, 3, 4] },
+      { title: "العائلة", repeatDays: [5] },
       { title: "الأسرة", repeatDays: [0, 1, 2, 3, 4] },
       { title: "غداء وجلسة مع العائلة", repeatDays: [5] },
-      { title: "مهام", repeatDays: [6] },
+      { title: "العائلة", repeatDays: [6] },
       { title: "آخر ساعة", repeatDays: [5] },
       { title: "لعب", repeatDays: [5, 6] },
       { title: "الأصدقاء + الأسرة + العائلة", repeatDays: [4] },
@@ -157,8 +159,8 @@ describe("buildWeekPreview", () => {
         "2026-05-26",
         "2026-05-27",
         "2026-05-28",
-        "2026-05-29",
       ],
+      "friday-dhuhr-family": ["2026-05-29"],
       "family-core": [
         "2026-05-24",
         "2026-05-25",
@@ -167,7 +169,7 @@ describe("buildWeekPreview", () => {
         "2026-05-28",
       ],
       "friday-family-lunch-session": ["2026-05-29"],
-      "saturday-asr-tasks": ["2026-05-30"],
+      "saturday-asr-family": ["2026-05-30"],
       "last-hour": ["2026-05-29"],
       play: ["2026-05-29", "2026-05-30"],
       "friends-family-first": ["2026-05-28"],
@@ -210,8 +212,8 @@ describe("buildWeekPreview", () => {
         startTime: "2026-05-29T11:54:00+03:00",
       },
       {
-        templateId: "dhuhr-tasks",
-        title: "مهام",
+        templateId: "friday-dhuhr-family",
+        title: "العائلة",
         startTime: "2026-05-29T12:14:00+03:00",
       },
     ])
@@ -293,8 +295,8 @@ describe("buildWeekPreview", () => {
         endTime: "2026-05-30T15:35:00+03:00",
       },
       {
-        templateId: "saturday-asr-tasks",
-        title: "مهام",
+        templateId: "saturday-asr-family",
+        title: "العائلة",
         startTime: "2026-05-30T15:35:00+03:00",
         endTime: "2026-05-30T16:35:00+03:00",
       },
