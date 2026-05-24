@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest"
 
 import { buildWeekPreview } from "./preview"
-import { seedCategories, seedTaskTemplates } from "./routine-data"
+import {
+  defaultTaskTemplates,
+  exampleTaskTemplates,
+  seedCategories,
+} from "./routine-data"
 
 describe("buildWeekPreview", () => {
   it("keeps every Notion routine template visible in the seeded routine", () => {
-    const titles = seedTaskTemplates.map((template) => template.title)
+    const titles = exampleTaskTemplates.map((template) => template.title)
 
     expect(titles).toEqual([
       "قيام",
@@ -39,10 +43,10 @@ describe("buildWeekPreview", () => {
   })
 
   it("keeps 27 templates while preserving selected-day repeat rules", () => {
-    expect(seedTaskTemplates).toHaveLength(27)
+    expect(exampleTaskTemplates).toHaveLength(27)
 
     expect(
-      seedTaskTemplates
+      exampleTaskTemplates
         .filter((template) => template.repeatType === "selected_days")
         .map((template) => ({
           title: template.title,
@@ -71,9 +75,31 @@ describe("buildWeekPreview", () => {
     ])
   })
 
+  it("starts as a generic empty routine while keeping prayer time groups", () => {
+    expect(defaultTaskTemplates).toEqual([])
+
+    const preview = buildWeekPreview({
+      startDate: "2026-05-24",
+      days: 1,
+    })
+
+    expect(preview[0]!.blocks.map((block) => block.timeBlockId)).toEqual([
+      "last_sixth_to_fajr",
+      "fajr_to_sunrise",
+      "sunrise_to_dhuhr",
+      "dhuhr_to_asr",
+      "asr_to_maghrib",
+      "maghrib_to_isha",
+      "isha_to_sleep",
+    ])
+    expect(
+      preview[0]!.blocks.every((block) => block.occurrences.length === 0)
+    ).toBe(true)
+  })
+
   it("keeps corrected duration defaults for worship and food templates", () => {
     const durations = Object.fromEntries(
-      seedTaskTemplates.map((template) => [
+      exampleTaskTemplates.map((template) => [
         template.id,
         template.defaultDurationMinutes,
       ])
@@ -103,6 +129,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
+      templates: exampleTaskTemplates,
     })
 
     expect(preview).toHaveLength(7)
@@ -122,7 +149,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
 
     expect(
@@ -217,7 +244,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-29",
       days: 1,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
     const friday = preview[0]!
     const blockById = new Map(
@@ -276,7 +303,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-30",
       days: 1,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
     const saturday = preview[0]!
     const blockById = new Map(
@@ -332,7 +359,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
 
     const titlesByDate = new Map(
@@ -354,7 +381,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-28",
       days: 2,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
 
     const titlesForDate = (date: string) =>
@@ -377,7 +404,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
 
     expect(preview.flatMap((day) => day.conflicts)).toEqual([
@@ -394,7 +421,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 1,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
 
     const titlesByBlock = new Map(
@@ -438,7 +465,7 @@ describe("buildWeekPreview", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 2,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
     })
     const sundayIsha = preview[0]!.blocks.find(
       (block) => block.timeBlockId === "isha_to_sleep"

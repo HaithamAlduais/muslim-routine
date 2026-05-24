@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildLiveWeekPreview } from "./live-preview"
-import { seedTaskTemplates } from "./routine-data"
+import { exampleTaskTemplates } from "./routine-data"
 import type { PrayerDay } from "./types"
 
 const prayerDays: PrayerDay[] = [
@@ -50,7 +50,7 @@ describe("live preview gating", () => {
         startDate: "2026-05-24",
         days: 1,
         prayerDays: [],
-        templates: seedTaskTemplates,
+        templates: exampleTaskTemplates,
         isPrayerTimesReady: false,
       })
     ).toEqual([])
@@ -61,7 +61,7 @@ describe("live preview gating", () => {
       startDate: "2026-05-24",
       days: 1,
       prayerDays,
-      templates: seedTaskTemplates,
+      templates: exampleTaskTemplates,
       isPrayerTimesReady: true,
     })
     const fajrBlock = preview[0]?.blocks.find(

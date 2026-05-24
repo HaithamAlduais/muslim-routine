@@ -5,7 +5,7 @@ import {
   parseFillWeekRequestBody,
   parsePreviewSearchParams,
 } from "./request-validation"
-import { seedTaskTemplates } from "./routine-data"
+import { exampleTaskTemplates } from "./routine-data"
 
 describe("request validation", () => {
   it("parses preview query params with safe defaults", () => {
@@ -39,7 +39,7 @@ describe("request validation", () => {
     const parsed = parseFillWeekRequestBody({
       startDate: "2026-05-24",
       days: 1,
-      templates: [seedTaskTemplates[0]],
+      templates: [exampleTaskTemplates[0]],
     })
 
     expect(parsed.startDate).toBe("2026-05-24")

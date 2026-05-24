@@ -27,8 +27,9 @@ import {
   type TemplateEditorScheduleMode,
 } from "@/lib/template-editor"
 import {
+  defaultTaskTemplates,
+  exampleTaskTemplates,
   seedCategories,
-  seedTaskTemplates,
   seedTimeBlocks,
 } from "@/lib/routine-data"
 import { durationLabel } from "@/lib/template-labels"
@@ -137,11 +138,11 @@ const scheduleModeOptions: Array<{
   { value: "anchor_to_block_end", label: "مثبت في نهاية البلوك" },
 ]
 
-const templateStorageKey = "muslim-routine.templates.v1"
+const templateStorageKey = "muslim-routine.templates.v2"
 
 export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [startDate, setStartDate] = React.useState(initialStartDate)
-  const [templates, setTemplates] = React.useState(seedTaskTemplates)
+  const [templates, setTemplates] = React.useState(defaultTaskTemplates)
   const [prayerDays, setPrayerDays] = React.useState<PrayerDay[]>([])
   const [prayerTimesState, setPrayerTimesState] =
     React.useState<PrayerTimesState>({ status: "loading" })
@@ -413,8 +414,14 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
     setExportState({ status: "idle" })
   }
 
-  function resetTemplates() {
-    setTemplates(seedTaskTemplates)
+  function clearTemplates() {
+    setTemplates(defaultTaskTemplates)
+    setEditingDraft(null)
+    setExportState({ status: "idle" })
+  }
+
+  function loadExampleTemplates() {
+    setTemplates(exampleTaskTemplates)
     setEditingDraft(null)
     setExportState({ status: "idle" })
   }
@@ -475,16 +482,16 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
             </Badge>
             <div className="flex flex-col gap-1">
               <h1 className="text-2xl font-semibold tracking-normal md:text-3xl">
-                روتين أسبوع كامل بضغطة واحدة
+                ابن روتينك حول أوقات الصلاة
               </h1>
               <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                عدل قوالبك، راجع الأسبوع القادم حسب أوقات الصلاة، ثم أرسل كل
-                بلوك إلى Google Calendar كحدث واحد مرتب.
+                أضف مهامك داخل كل فترة صلاة، راجع الأسبوع حسب أوقات الصلاة
+                الحقيقية، ثم أرسل كل فترة إلى Google Calendar كحدث واحد.
               </p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <Metric label="القوالب" value={activeTemplateCount.toString()} />
+            <Metric label="المهام" value={activeTemplateCount.toString()} />
             <Metric label="الأحداث" value={visibleEvents.length.toString()} />
             <Metric label="تنبيهات" value={conflictCount.toString()} />
           </div>
@@ -562,10 +569,10 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <PlusIcon data-icon="inline-start" />
-                    قالب جديد
+                    مهمة جديدة
                   </CardTitle>
                   <CardDescription>
-                    أضف روتين بسيط يظهر في المعاينة والتصدير.
+                    أضف مهمة داخل إحدى فترات الصلاة مع مدتها وتكرارها.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -736,23 +743,42 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                       onClick={addTemplate}
                     >
                       <PlusIcon data-icon="inline-start" />
-                      إضافة القالب
+                      إضافة المهمة
                     </Button>
                     <Button
                       type="button"
                       className="w-full"
                       variant="outline"
-                      onClick={resetTemplates}
+                      onClick={loadExampleTemplates}
                     >
                       <RefreshCwIcon data-icon="inline-start" />
-                      استعادة القوالب الافتراضية
+                      تحميل مثال جاهز
+                    </Button>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      variant="ghost"
+                      onClick={clearTemplates}
+                    >
+                      <Trash2Icon data-icon="inline-start" />
+                      مسح كل المهام
                     </Button>
                   </div>
                 </CardFooter>
               </Card>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {templates.map((template) => (
+              {templates.length === 0 ? (
+                <Alert>
+                  <ListChecksIcon />
+                  <AlertTitle>ابدأ بمهامك أنت</AlertTitle>
+                  <AlertDescription>
+                    فترات الصلاة جاهزة من أوقات الصلاة، لكن لا توجد مهام
+                    داخلها بعد. أضف مهمة جديدة أو حمل مثالا جاهزا للتجربة.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {templates.map((template) => (
                   <Card key={template.id}>
                     <CardHeader>
                       <div className="flex items-start justify-between gap-3">
@@ -817,8 +843,9 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                       </Badge>
                     </CardFooter>
                   </Card>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           </TabsContent>
 
@@ -1442,9 +1469,7 @@ function DayPreview({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {day.blocks
-          .filter((block) => block.occurrences.length > 0)
-          .map((block) => (
+        {day.blocks.map((block) => (
             <div key={block.timeBlockId} className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-medium">{block.nameAr}</h3>
@@ -1453,6 +1478,11 @@ function DayPreview({
                 </Badge>
               </div>
               <div className="flex flex-col gap-2">
+                {block.occurrences.length === 0 && (
+                  <div className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                    لا توجد مهام داخل هذه الفترة.
+                  </div>
+                )}
                 {block.occurrences.map((occurrence) => (
                   <div
                     key={occurrence.id}

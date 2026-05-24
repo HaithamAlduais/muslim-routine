@@ -9,12 +9,12 @@ import {
   templateToEditorDraft,
   toggleEditorDraftDay,
 } from "./template-editor"
-import { seedCategories, seedTaskTemplates } from "./routine-data"
+import { exampleTaskTemplates, seedCategories } from "./routine-data"
 import type { Weekday } from "./types"
 
 describe("template editor helpers", () => {
   it("updates all editable template fields and sanitizes checklist items", () => {
-    const source = seedTaskTemplates.find((template) => template.id === "fajr")!
+    const source = exampleTaskTemplates.find((template) => template.id === "fajr")!
     const draft = {
       ...templateToEditorDraft(source),
       title: "صلاة الفجر المعدلة",
@@ -60,7 +60,7 @@ describe("template editor helpers", () => {
   })
 
   it("clears selected days and schedule mode when the draft does not need them", () => {
-    const source = seedTaskTemplates.find((template) => template.id === "last-hour")!
+    const source = exampleTaskTemplates.find((template) => template.id === "last-hour")!
     const updated = applyTemplateEditorDraft(
       source,
       {
@@ -77,7 +77,7 @@ describe("template editor helpers", () => {
   })
 
   it("toggles selected weekdays in sorted order", () => {
-    const draft = templateToEditorDraft(seedTaskTemplates[0]!)
+    const draft = templateToEditorDraft(exampleTaskTemplates[0]!)
 
     expect(toggleEditorDraftDay({ ...draft, repeatDays: [4] }, 1).repeatDays).toEqual([
       1,
@@ -89,14 +89,14 @@ describe("template editor helpers", () => {
   })
 
   it("deletes a template by id", () => {
-    expect(deleteTemplateById(seedTaskTemplates, "fajr")).not.toContainEqual(
+    expect(deleteTemplateById(exampleTaskTemplates, "fajr")).not.toContainEqual(
       expect.objectContaining({ id: "fajr" })
     )
   })
 
   it("round-trips stored templates for client-side persistence", () => {
-    expect(parseStoredTemplates(serializeTemplates(seedTaskTemplates))).toEqual(
-      seedTaskTemplates
+    expect(parseStoredTemplates(serializeTemplates(exampleTaskTemplates))).toEqual(
+      exampleTaskTemplates
     )
   })
 
@@ -106,7 +106,7 @@ describe("template editor helpers", () => {
   })
 
   it("migrates a saved template duration without replacing other edits", () => {
-    const templates = seedTaskTemplates.map((template) =>
+    const templates = exampleTaskTemplates.map((template) =>
       template.id === "prepare-istighfar"
         ? { ...template, title: "إعداد خاص", defaultDurationMinutes: 10 }
         : template

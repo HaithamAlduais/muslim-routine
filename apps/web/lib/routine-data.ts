@@ -126,7 +126,9 @@ function taskTemplate(
   }
 }
 
-export const seedTaskTemplates: TaskTemplate[] = [
+export const defaultTaskTemplates: TaskTemplate[] = []
+
+export const exampleTaskTemplates: TaskTemplate[] = [
   taskTemplate({
     id: "before-fajr",
     title: "قيام",
@@ -563,6 +565,8 @@ export const seedTaskTemplates: TaskTemplate[] = [
     sortOrder: 50,
   }),
 ]
+
+export const seedTaskTemplates = exampleTaskTemplates
 
 export const seedPrayerDays: PrayerDay[] = [
   "2026-05-24",

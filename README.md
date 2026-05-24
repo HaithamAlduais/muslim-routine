@@ -1,12 +1,14 @@
 # muslim-routine
 
-Arabic-first routine planner that turns prayer-time-based templates into a one-week Google Calendar plan.
+Arabic-first routine planner that turns user-created prayer-time-group missions into a one-week Google Calendar plan.
 
 ## What It Does
 
-- Builds a 7-day preview grouped by real routine blocks such as `الفجر إلى الشروق`.
-- Keeps reusable task templates separate from generated occurrences.
-- Supports daily and selected-day repeats like `سحور + استغفار` on Monday and Thursday.
+- Provides fixed prayer-time groups such as `السدس الأخير من الليل / قبل الفجر` and `الفجر إلى الشروق`.
+- Calculates each group from prayer times, then lets each user add their own missions with durations inside the group.
+- Keeps reusable user task templates separate from generated occurrences.
+- Supports daily, weekly, selected-day, monthly, and custom repeats.
+- Starts empty for a new user, with the original routine available as an optional example preset.
 - Exports one Google Calendar event per occupied prayer block.
 - Uses a payload hash and private Google event properties so repeated exports update existing events instead of duplicating them.
 

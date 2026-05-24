@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { POST as fillWeek } from "../app/api/calendar/fill-week/route"
 import { GET as getPrayerTimes } from "../app/api/prayer-times/route"
+import { exampleTaskTemplates } from "./routine-data"
 
 describe("prayer API routes", () => {
   afterEach(() => {
@@ -35,7 +36,11 @@ describe("prayer API routes", () => {
     const response = await fillWeek(
       new Request("http://localhost/api/calendar/fill-week", {
         method: "POST",
-        body: JSON.stringify({ startDate: "2026-05-24", days: 1 }),
+        body: JSON.stringify({
+          startDate: "2026-05-24",
+          days: 1,
+          templates: exampleTaskTemplates,
+        }),
       })
     )
     const body = (await response.json()) as {

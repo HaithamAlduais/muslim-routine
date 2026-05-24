@@ -1,8 +1,8 @@
 import { addDays } from "./date-utils"
 import { generateOccurrences } from "./repeat"
 import {
+  defaultTaskTemplates,
   seedPrayerDays,
-  seedTaskTemplates,
   seedTimeBlocks,
 } from "./routine-data"
 import { autoPackDay } from "./schedule"
@@ -19,7 +19,7 @@ type BuildWeekPreviewInput = {
 export function buildWeekPreview({
   startDate,
   days = 7,
-  templates = seedTaskTemplates,
+  templates = defaultTaskTemplates,
   timeBlocks = seedTimeBlocks,
   prayerDays = seedPrayerDays,
 }: BuildWeekPreviewInput): PackedDay[] {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { buildCalendarBlockEvents } from "./calendar"
 import { buildWeekPreview } from "./preview"
+import { exampleTaskTemplates } from "./routine-data"
 import type { PackedDay } from "./types"
 
 const packedDay: PackedDay = {
@@ -107,6 +108,7 @@ describe("buildCalendarBlockEvents", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 1,
+      templates: exampleTaskTemplates,
     })
     const colors = Object.fromEntries(
       buildCalendarBlockEvents(preview).map((event) => [
@@ -130,6 +132,7 @@ describe("buildCalendarBlockEvents", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-24",
       days: 7,
+      templates: exampleTaskTemplates,
     })
     const descriptions = buildCalendarBlockEvents(preview)
       .map((event) => event.description)
