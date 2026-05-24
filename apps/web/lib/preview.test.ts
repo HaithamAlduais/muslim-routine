@@ -17,7 +17,10 @@ describe("buildWeekPreview", () => {
       "إعداد+استغفار",
       "تطوير",
       "صلاة الفجر",
-      "رياضة",
+      "Overload Tracker - Day 1",
+      "Overload Tracker - Day 2",
+      "كرة قدم",
+      "عربي",
       "انجليزي",
       "نوم",
       "فطور مع الأسرة",
@@ -33,6 +36,7 @@ describe("buildWeekPreview", () => {
       "آخر ساعة",
       "صلاة المغرب",
       "عربي",
+      "كرة قدم",
       "لعب",
       "صلاة العشاء",
       "عشاء مع العائلة",
@@ -42,8 +46,8 @@ describe("buildWeekPreview", () => {
     ])
   })
 
-  it("keeps 27 templates while preserving selected-day repeat rules", () => {
-    expect(exampleTaskTemplates).toHaveLength(27)
+  it("keeps 31 templates while preserving selected-day repeat rules", () => {
+    expect(exampleTaskTemplates).toHaveLength(31)
 
     expect(
       exampleTaskTemplates
@@ -55,8 +59,11 @@ describe("buildWeekPreview", () => {
     ).toEqual([
       { title: "سحور+استغفار", repeatDays: [1, 4] },
       { title: "إعداد+استغفار", repeatDays: [0, 2, 3, 5, 6] },
-      { title: "رياضة", repeatDays: [0, 2, 3] },
-      { title: "انجليزي", repeatDays: [1, 4] },
+      { title: "Overload Tracker - Day 1", repeatDays: [0] },
+      { title: "Overload Tracker - Day 2", repeatDays: [2] },
+      { title: "كرة قدم", repeatDays: [3] },
+      { title: "عربي", repeatDays: [4] },
+      { title: "انجليزي", repeatDays: [1] },
       { title: "نوم", repeatDays: [5, 6] },
       { title: "فطور مع الأسرة", repeatDays: [0, 2, 3, 5, 6] },
       { title: "مهام", repeatDays: [0, 1, 2, 3, 4] },
@@ -67,7 +74,8 @@ describe("buildWeekPreview", () => {
       { title: "غداء وجلسة مع العائلة", repeatDays: [5] },
       { title: "العائلة", repeatDays: [6] },
       { title: "آخر ساعة", repeatDays: [5] },
-      { title: "عربي", repeatDays: [0, 1, 2, 3, 4] },
+      { title: "عربي", repeatDays: [0, 1, 2, 3] },
+      { title: "كرة قدم", repeatDays: [4] },
       { title: "لعب", repeatDays: [5, 6] },
       { title: "الأسرة", repeatDays: [4] },
       { title: "الأصدقاء", repeatDays: [5] },
@@ -176,8 +184,10 @@ describe("buildWeekPreview", () => {
         "2026-05-29",
         "2026-05-30",
       ],
-      exercise: ["2026-05-24", "2026-05-26", "2026-05-27"],
-      english: ["2026-05-25", "2026-05-28"],
+      "overload-day-1": ["2026-05-24"],
+      "overload-day-2": ["2026-05-26"],
+      exercise: ["2026-05-27"],
+      english: ["2026-05-25"],
       "morning-sleep": ["2026-05-29", "2026-05-30"],
       "family-breakfast": [
         "2026-05-24",
@@ -212,13 +222,9 @@ describe("buildWeekPreview", () => {
       "friday-family-lunch-session": ["2026-05-29"],
       "saturday-asr-family": ["2026-05-30"],
       "last-hour": ["2026-05-29"],
-      arabic: [
-        "2026-05-24",
-        "2026-05-25",
-        "2026-05-26",
-        "2026-05-27",
-        "2026-05-28",
-      ],
+      arabic: ["2026-05-24", "2026-05-25", "2026-05-26", "2026-05-27"],
+      "arabic-thursday-morning": ["2026-05-28"],
+      "football-thursday-evening": ["2026-05-28"],
       play: ["2026-05-29", "2026-05-30"],
       "friends-family-first": ["2026-05-28"],
       "friends-family-second": ["2026-05-29"],
@@ -388,6 +394,28 @@ describe("buildWeekPreview", () => {
     }
   })
 
+  it("swaps Arabic and football on Thursday", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-28",
+      days: 1,
+      templates: exampleTaskTemplates,
+    })
+
+    const thursday = preview[0]!
+    const titlesByBlock = new Map(
+      thursday.blocks.map((block) => [
+        block.timeBlockId,
+        block.occurrences.map((occurrence) => occurrence.title),
+      ])
+    )
+
+    expect(titlesByBlock.get("fajr_to_sunrise")).toEqual(["صلاة الفجر", "عربي"])
+    expect(titlesByBlock.get("maghrib_to_isha")).toEqual([
+      "صلاة المغرب",
+      "كرة قدم",
+    ])
+  })
+
   it("uses separate Thursday family and Friday friends labels after Isha", () => {
     const preview = buildWeekPreview({
       startDate: "2026-05-28",
@@ -442,7 +470,7 @@ describe("buildWeekPreview", () => {
     ])
     expect(titlesByBlock.get("fajr_to_sunrise")).toEqual([
       "صلاة الفجر",
-      "رياضة",
+      "Overload Tracker - Day 1",
     ])
     expect(titlesByBlock.get("sunrise_to_dhuhr")).toEqual([
       "فطور مع الأسرة",

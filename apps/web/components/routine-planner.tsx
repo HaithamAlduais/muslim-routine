@@ -1,9 +1,11 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
   CalendarCheckIcon,
   ClockIcon,
+  DumbbellIcon,
   ListChecksIcon,
   MapPinIcon,
   PencilIcon,
@@ -21,9 +23,12 @@ import {
   routinePlannerTabs,
   userFacingSettingsCopy,
 } from "@/lib/routine-planner-surface"
+import { workoutHrefForTemplate } from "@/lib/workout-plan"
 import {
   applyTemplateEditorDraft,
   deleteTemplateById,
+  mergeMissingTemplates,
+  migrateTemplateTitle,
   migrateTemplateRepeatDays,
   migrateTemplateDuration,
   parseStoredTemplates,
@@ -416,8 +421,9 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
         15
       )
 
-      setTemplates(
-        migrateTemplateRepeatDays(durationMigratedTemplates, [
+      const dayMigratedTemplates = migrateTemplateRepeatDays(
+        durationMigratedTemplates,
+        [
           {
             templateId: "sunrise-tasks",
             from: [1, 2, 3, 4, 5],
@@ -431,8 +437,40 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
           {
             templateId: "arabic",
             from: [1, 2, 3, 4, 5],
-            to: [0, 1, 2, 3, 4],
+            to: [0, 1, 2, 3],
           },
+          {
+            templateId: "exercise",
+            from: [0, 2, 3],
+            to: [3],
+          },
+          {
+            templateId: "arabic",
+            from: [0, 1, 2, 3, 4],
+            to: [0, 1, 2, 3],
+          },
+          {
+            templateId: "english",
+            from: [1, 4],
+            to: [1],
+          },
+        ]
+      )
+      const titleMigratedTemplates = migrateTemplateTitle(
+        dayMigratedTemplates,
+        {
+          templateId: "exercise",
+          from: "رياضة",
+          to: "كرة قدم",
+        }
+      )
+
+      setTemplates(
+        mergeMissingTemplates(titleMigratedTemplates, exampleTaskTemplates, [
+          "overload-day-1",
+          "overload-day-2",
+          "arabic-thursday-morning",
+          "football-thursday-evening",
         ])
       )
     }
@@ -2401,24 +2439,46 @@ function DayPreview({
                   لا توجد مهام داخل هذه الفترة.
                 </div>
               )}
-              {block.occurrences.map((occurrence) => (
-                <div
-                  key={occurrence.id}
-                  className="rounded-lg border bg-muted/40 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">
-                      {occurrence.title}
-                    </span>
-                    <span
-                      className="font-mono text-xs text-muted-foreground"
-                      dir="ltr"
-                    >
-                      {occurrence.startTime?.slice(11, 16)}
-                    </span>
+              {block.occurrences.map((occurrence) => {
+                const workoutHref = workoutHrefForTemplate(
+                  occurrence.templateId
+                )
+
+                return (
+                  <div
+                    key={occurrence.id}
+                    className="rounded-lg border bg-muted/40 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium">
+                        {occurrence.title}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        {workoutHref && (
+                          <Button
+                            asChild
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="فتح التمرين"
+                            title="فتح التمرين"
+                          >
+                            <Link href={workoutHref}>
+                              <DumbbellIcon />
+                            </Link>
+                          </Button>
+                        )}
+                        <span
+                          className="font-mono text-xs text-muted-foreground"
+                          dir="ltr"
+                        >
+                          {occurrence.startTime?.slice(11, 16)}
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))}

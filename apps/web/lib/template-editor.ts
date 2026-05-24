@@ -145,6 +145,38 @@ export function migrateTemplateRepeatDays(
   })
 }
 
+export function migrateTemplateTitle(
+  templates: TaskTemplate[],
+  migration: {
+    templateId: string
+    from: string
+    to: string
+  }
+) {
+  return templates.map((template) =>
+    template.id === migration.templateId && template.title === migration.from
+      ? {
+          ...template,
+          title: migration.to,
+        }
+      : template
+  )
+}
+
+export function mergeMissingTemplates(
+  templates: TaskTemplate[],
+  seedTemplates: TaskTemplate[],
+  templateIds: string[]
+) {
+  const existingIds = new Set(templates.map((template) => template.id))
+  const additions = seedTemplates.filter(
+    (template) =>
+      templateIds.includes(template.id) && !existingIds.has(template.id)
+  )
+
+  return [...templates, ...additions]
+}
+
 export function serializeTemplates(templates: TaskTemplate[]) {
   return JSON.stringify(templates)
 }

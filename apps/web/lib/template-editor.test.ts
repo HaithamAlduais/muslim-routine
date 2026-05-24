@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   applyTemplateEditorDraft,
   deleteTemplateById,
+  mergeMissingTemplates,
+  migrateTemplateTitle,
   migrateTemplateRepeatDays,
   migrateTemplateDuration,
   parseStoredTemplates,
@@ -174,5 +176,51 @@ describe("template editor helpers", () => {
       title: "عربي معدل",
       repeatDays: [2, 3],
     })
+  })
+
+  it("renames a known template only when it still has the old seed title", () => {
+    const oldSeedTitle = exampleTaskTemplates.map((template) =>
+      template.id === "exercise" ? { ...template, title: "رياضة" } : template
+    )
+    const migrated = migrateTemplateTitle(oldSeedTitle, {
+      templateId: "exercise",
+      from: "رياضة",
+      to: "كرة قدم",
+    })
+
+    expect(migrated.find((item) => item.id === "exercise")?.title).toBe(
+      "كرة قدم"
+    )
+
+    const custom = exampleTaskTemplates.map((template) =>
+      template.id === "exercise"
+        ? { ...template, title: "تمرين خاص" }
+        : template
+    )
+
+    expect(
+      migrateTemplateTitle(custom, {
+        templateId: "exercise",
+        from: "رياضة",
+        to: "كرة قدم",
+      }).find((item) => item.id === "exercise")?.title
+    ).toBe("تمرين خاص")
+  })
+
+  it("adds newly seeded templates without duplicating existing user templates", () => {
+    const existing = exampleTaskTemplates.filter(
+      (template) => template.id !== "overload-day-1"
+    )
+    const merged = mergeMissingTemplates(existing, exampleTaskTemplates, [
+      "overload-day-1",
+      "overload-day-2",
+    ])
+
+    expect(
+      merged.filter((template) => template.id === "overload-day-1")
+    ).toHaveLength(1)
+    expect(
+      merged.filter((template) => template.id === "overload-day-2")
+    ).toHaveLength(1)
   })
 })
