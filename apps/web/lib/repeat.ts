@@ -97,5 +97,6 @@ function occurrenceFromTemplate(
     syncStatus: "not_synced",
     sortOrder: template.sortOrder,
     includeInCalendar: template.includeInCalendar,
+    scheduleMode: template.scheduleMode,
   }
 }

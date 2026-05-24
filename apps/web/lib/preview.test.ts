@@ -23,6 +23,7 @@ describe("buildWeekPreview", () => {
       "مهام",
       "صلاة العصر",
       "الأسرة",
+      "غداء وجلسة مع العائلة",
       "العائلة",
       "آخر ساعة",
       "صلاة المغرب",
@@ -36,8 +37,8 @@ describe("buildWeekPreview", () => {
     ])
   })
 
-  it("keeps 25 templates while preserving selected-day repeat rules", () => {
-    expect(seedTaskTemplates).toHaveLength(25)
+  it("keeps 26 templates while preserving selected-day repeat rules", () => {
+    expect(seedTaskTemplates).toHaveLength(26)
 
     expect(
       seedTaskTemplates
@@ -53,8 +54,9 @@ describe("buildWeekPreview", () => {
       { title: "انجليزي", repeatDays: [1, 4] },
       { title: "نوم", repeatDays: [5, 6] },
       { title: "فطور مع الأسرة", repeatDays: [0, 2, 3, 5, 6] },
-      { title: "غداء مع العائلة", repeatDays: [0, 2, 3, 5, 6] },
+      { title: "غداء مع العائلة", repeatDays: [0, 2, 3, 6] },
       { title: "الأسرة", repeatDays: [0, 1, 2, 3, 4] },
+      { title: "غداء وجلسة مع العائلة", repeatDays: [5] },
       { title: "العائلة", repeatDays: [6] },
       { title: "آخر ساعة", repeatDays: [5] },
       { title: "لعب", repeatDays: [5, 6] },
@@ -146,7 +148,6 @@ describe("buildWeekPreview", () => {
         "2026-05-24",
         "2026-05-26",
         "2026-05-27",
-        "2026-05-29",
         "2026-05-30",
       ],
       "family-core": [
@@ -156,6 +157,7 @@ describe("buildWeekPreview", () => {
         "2026-05-27",
         "2026-05-28",
       ],
+      "friday-family-lunch-session": ["2026-05-29"],
       "extended-family": ["2026-05-30"],
       "last-hour": ["2026-05-29"],
       play: ["2026-05-29", "2026-05-30"],
@@ -173,6 +175,65 @@ describe("buildWeekPreview", () => {
     for (const [templateId, dates] of Object.entries(expectedDates)) {
       expect(datesForTemplate(templateId)).toEqual(dates)
     }
+  })
+
+  it("uses the Friday lunch exception before the last Asr hour", () => {
+    const preview = buildWeekPreview({
+      startDate: "2026-05-29",
+      days: 1,
+      templates: seedTaskTemplates,
+    })
+    const friday = preview[0]!
+    const blockById = new Map(
+      friday.blocks.map((block) => [block.timeBlockId, block])
+    )
+
+    expect(
+      blockById.get("dhuhr_to_asr")!.occurrences.map((occurrence) => ({
+        templateId: occurrence.templateId,
+        title: occurrence.title,
+        startTime: occurrence.startTime,
+      }))
+    ).toEqual([
+      {
+        templateId: "dhuhr",
+        title: "صلاة الظهر",
+        startTime: "2026-05-29T11:54:00+03:00",
+      },
+      {
+        templateId: "dhuhr-tasks",
+        title: "مهام",
+        startTime: "2026-05-29T12:14:00+03:00",
+      },
+    ])
+
+    expect(
+      blockById.get("asr_to_maghrib")!.occurrences.map((occurrence) => ({
+        templateId: occurrence.templateId,
+        title: occurrence.title,
+        startTime: occurrence.startTime,
+        endTime: occurrence.endTime,
+      }))
+    ).toEqual([
+      {
+        templateId: "asr",
+        title: "صلاة العصر",
+        startTime: "2026-05-29T15:15:00+03:00",
+        endTime: "2026-05-29T15:35:00+03:00",
+      },
+      {
+        templateId: "friday-family-lunch-session",
+        title: "غداء وجلسة مع العائلة",
+        startTime: "2026-05-29T15:35:00+03:00",
+        endTime: "2026-05-29T17:38:00+03:00",
+      },
+      {
+        templateId: "last-hour",
+        title: "آخر ساعة",
+        startTime: "2026-05-29T17:38:00+03:00",
+        endTime: "2026-05-29T18:38:00+03:00",
+      },
+    ])
   })
 
   it("packs the Notion routine without scheduling conflicts", () => {

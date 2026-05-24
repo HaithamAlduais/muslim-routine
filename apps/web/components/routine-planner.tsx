@@ -16,7 +16,7 @@ import {
   seedTaskTemplates,
   seedTimeBlocks,
 } from "@/lib/routine-data"
-import type { RepeatType, Weekday } from "@/lib/types"
+import type { RepeatType, TaskTemplate, Weekday } from "@/lib/types"
 import { buildCalendarBlockEvents } from "@/lib/calendar"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -509,7 +509,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
                           {blockLabel(template.defaultTimeBlockId)}
                         </Badge>
                         <Badge variant="outline">
-                          {template.defaultDurationMinutes} دقيقة
+                          {durationLabel(template)}
                         </Badge>
                       </div>
                       {template.notes && (
@@ -768,4 +768,16 @@ function repeatLabel(repeatType: RepeatType, repeatDays: Weekday[]) {
     .map((day) => weekdayOptions.find((option) => option.value === day)?.label)
     .filter(Boolean)
     .join("، ")}`
+}
+
+function durationLabel(template: TaskTemplate) {
+  if (template.scheduleMode === "fill_until_next_anchor") {
+    return "حتى آخر ساعة"
+  }
+
+  if (template.scheduleMode === "anchor_to_block_end") {
+    return `آخر ${template.defaultDurationMinutes} دقيقة`
+  }
+
+  return `${template.defaultDurationMinutes} دقيقة`
 }

@@ -28,6 +28,11 @@ export type Priority = "high" | "medium" | "low"
 
 export type SyncStatus = "not_synced" | "synced" | "needs_update" | "conflict"
 
+export type ScheduleMode =
+  | "fixed_duration"
+  | "fill_until_next_anchor"
+  | "anchor_to_block_end"
+
 export type TimeBlock = {
   id: string
   nameAr: string
@@ -57,6 +62,7 @@ export type TaskTemplate = {
   isActive: boolean
   includeInCalendar: boolean
   sortOrder: number
+  scheduleMode?: ScheduleMode
 }
 
 export type TaskOccurrence = {
@@ -75,6 +81,7 @@ export type TaskOccurrence = {
   syncStatus: SyncStatus
   sortOrder: number
   includeInCalendar: boolean
+  scheduleMode?: ScheduleMode
   startTime?: string
   endTime?: string
 }

@@ -51,29 +51,13 @@ export function autoPackDay({
         (a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)
       )
 
-    let cursor = startTime
-    const packedOccurrences = blockOccurrences.map((occurrence) => {
-      const start = cursor
-      const end = addMinutes(start, occurrence.durationMinutes)
-      cursor = end
-
-      if (minutesBetween(endTime, end) > 0) {
-        conflicts.push({
-          type: "duration_exceeds_block",
-          date,
-          timeBlockId: block.id,
-          occurrenceId: occurrence.id,
-          message: `${occurrence.title} لا يناسب وقت ${block.nameAr}`,
-        })
-      }
-
-      return {
-        ...occurrence,
-        startTime: start,
-        endTime: end,
-        syncStatus:
-          minutesBetween(endTime, end) > 0 ? "conflict" : occurrence.syncStatus,
-      }
+    const packedOccurrences = packBlockOccurrences({
+      block,
+      blockEndTime: endTime,
+      blockStartTime: startTime,
+      conflicts,
+      date,
+      occurrences: blockOccurrences,
     })
 
     return {
@@ -87,6 +71,114 @@ export function autoPackDay({
   })
 
   return { date, blocks, conflicts }
+}
+
+function packBlockOccurrences({
+  block,
+  blockEndTime,
+  blockStartTime,
+  conflicts,
+  date,
+  occurrences,
+}: {
+  block: TimeBlock
+  blockEndTime: string
+  blockStartTime: string
+  conflicts: ScheduleConflict[]
+  date: string
+  occurrences: TaskOccurrence[]
+}) {
+  const anchoredTimes = new Map<
+    string,
+    { startTime: string; endTime: string }
+  >()
+  let anchorCursor = blockEndTime
+
+  for (const occurrence of [...occurrences].reverse()) {
+    if (occurrence.scheduleMode !== "anchor_to_block_end") {
+      continue
+    }
+
+    const startTime = addMinutes(anchorCursor, -occurrence.durationMinutes)
+    anchoredTimes.set(occurrence.id, {
+      startTime,
+      endTime: anchorCursor,
+    })
+    anchorCursor = startTime
+  }
+
+  let cursor = blockStartTime
+
+  return occurrences.map((occurrence, index) => {
+    const anchoredTime = anchoredTimes.get(occurrence.id)
+    const nextAnchorStart =
+      anchoredTime?.startTime ??
+      nextAnchoredStart(occurrences, index, anchoredTimes) ??
+      blockEndTime
+    let startTime: string
+    let endTime: string
+
+    if (anchoredTime) {
+      startTime = anchoredTime.startTime
+      endTime = anchoredTime.endTime
+      cursor = endTime
+    } else if (occurrence.scheduleMode === "fill_until_next_anchor") {
+      startTime = cursor
+      endTime =
+        minutesBetween(startTime, nextAnchorStart) >= 0
+          ? nextAnchorStart
+          : addMinutes(startTime, occurrence.durationMinutes)
+      cursor = endTime
+    } else {
+      startTime = cursor
+      endTime = addMinutes(startTime, occurrence.durationMinutes)
+      cursor = endTime
+    }
+
+    const exceedsBlock = minutesBetween(blockEndTime, endTime) > 0
+    const overlapsAnchor =
+      !anchoredTime && minutesBetween(nextAnchorStart, endTime) > 0
+    const startsBeforeBlock =
+      anchoredTime && minutesBetween(blockStartTime, startTime) < 0
+    const hasConflict = exceedsBlock || overlapsAnchor || startsBeforeBlock
+
+    if (hasConflict) {
+      conflicts.push({
+        type: "duration_exceeds_block",
+        date,
+        timeBlockId: block.id,
+        occurrenceId: occurrence.id,
+        message: `${occurrence.title} لا يناسب وقت ${block.nameAr}`,
+      })
+    }
+
+    return {
+      ...occurrence,
+      startTime,
+      endTime,
+      syncStatus: hasConflict ? "conflict" : occurrence.syncStatus,
+    }
+  })
+}
+
+function nextAnchoredStart(
+  occurrences: TaskOccurrence[],
+  index: number,
+  anchoredTimes: Map<string, { startTime: string; endTime: string }>
+) {
+  for (
+    let nextIndex = index + 1;
+    nextIndex < occurrences.length;
+    nextIndex += 1
+  ) {
+    const time = anchoredTimes.get(occurrences[nextIndex]!.id)
+
+    if (time) {
+      return time.startTime
+    }
+  }
+
+  return undefined
 }
 
 function resolveBlockTime(
