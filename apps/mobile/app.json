@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false
     },
     "extra": {
-      "routineAppUrl": "http://10.0.2.2:3000",
+      "routineAppUrl": "https://muslim-routine-web.onrender.com",
       "eas": {
         "projectId": "10c6b97f-3cae-4e94-9de7-c997b37bfbe2"
       }
