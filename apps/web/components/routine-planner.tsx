@@ -5,6 +5,7 @@ import Link from "next/link"
 import {
   CalendarCheckIcon,
   ClockIcon,
+  DownloadIcon,
   DumbbellIcon,
   ListChecksIcon,
   MapPinIcon,
@@ -53,6 +54,7 @@ import type {
   Weekday,
 } from "@/lib/types"
 import { buildCalendarBlockEvents } from "@/lib/calendar"
+import { calendarEventsToIcs } from "@/lib/ics"
 import {
   defaultPrayerApiSettings,
   type PrayerApiSettings,
@@ -888,6 +890,36 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
     }
   }
 
+  function downloadCalendarFile() {
+    if (!visibleEvents.length) {
+      setExportState({
+        status: "error",
+        message: "لا توجد أحداث جاهزة للتنزيل.",
+      })
+      return
+    }
+
+    const ics = calendarEventsToIcs(visibleEvents)
+    const blob = new Blob([ics], {
+      type: "text/calendar;charset=utf-8",
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    link.href = url
+    link.download = `muslim-routine-${startDate}.ics`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+
+    setExportState({
+      status: "ready",
+      configured: false,
+      message: `تم تنزيل ملف التقويم وفيه ${visibleEvents.length} أحداث. ارفعه في Google Calendar من Import.`,
+    })
+  }
+
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 sm:px-6 lg:px-8">
@@ -1371,6 +1403,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
         <FloatingPlannerActions
           exportState={exportState}
           hasPrayerApiTimes={hasPrayerApiTimes}
+          onDownloadCalendar={downloadCalendarFile}
           onFillCalendar={fillCalendar}
           onOpenSettings={() => setSettingsOpen(true)}
         />
@@ -1461,11 +1494,13 @@ function CalendarExportStatus({ state }: { state: ExportState }) {
 function FloatingPlannerActions({
   exportState,
   hasPrayerApiTimes,
+  onDownloadCalendar,
   onFillCalendar,
   onOpenSettings,
 }: {
   exportState: ExportState
   hasPrayerApiTimes: boolean
+  onDownloadCalendar: () => void
   onFillCalendar: () => void
   onOpenSettings: () => void
 }) {
@@ -1482,6 +1517,14 @@ function FloatingPlannerActions({
 
   return (
     <div className="fixed right-4 bottom-4 z-50 flex flex-col gap-2 sm:right-6 sm:bottom-6">
+      <FloatingActionButton
+        label="تحميل ملف التقويم"
+        onClick={onDownloadCalendar}
+        disabled={!hasPrayerApiTimes}
+        variant="secondary"
+      >
+        <DownloadIcon />
+      </FloatingActionButton>
       <FloatingActionButton
         label={calendarAction.label}
         onClick={onFillCalendar}
