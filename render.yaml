@@ -6,8 +6,8 @@ services:
     region: oregon
     branch: main
     autoDeploy: true
-    buildCommand: corepack enable && corepack pnpm install --frozen-lockfile && corepack pnpm --dir apps/web build
-    startCommand: corepack pnpm --dir apps/web exec next start -H 0.0.0.0 -p $PORT
+    buildCommand: npx -y pnpm@10.33.4 install --frozen-lockfile && npx -y pnpm@10.33.4 --dir apps/web build
+    startCommand: npx -y pnpm@10.33.4 --dir apps/web exec next start -H 0.0.0.0 -p $PORT
     healthCheckPath: /api/health
     buildFilter:
       paths:
