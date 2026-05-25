@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: muslim-routine-web
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    buildCommand: corepack enable && corepack pnpm install --frozen-lockfile && corepack pnpm --dir apps/web build
+    startCommand: corepack pnpm --dir apps/web exec next start -H 0.0.0.0 -p $PORT
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - apps/web/**
+        - packages/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - turbo.json
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: GOOGLE_CALENDAR_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

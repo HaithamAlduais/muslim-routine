@@ -1,4 +1,9 @@
 import type { CalendarBlockEvent, PackedDay, TaskOccurrence } from "./types"
+import { workoutHrefForTemplate } from "./workout-plan"
+
+type BuildCalendarBlockEventsOptions = {
+  baseUrl?: string
+}
 
 const googleCalendarColorIdsByTimeBlock: Record<string, string> = {
   last_sixth_to_fajr: "9",
@@ -27,7 +32,8 @@ const googleCalendarColorIdsByToken: Record<string, string> = {
 }
 
 export function buildCalendarBlockEvents(
-  days: PackedDay[]
+  days: PackedDay[],
+  options: BuildCalendarBlockEventsOptions = {}
 ): CalendarBlockEvent[] {
   return days.flatMap((day) =>
     day.blocks
@@ -42,7 +48,7 @@ export function buildCalendarBlockEvents(
           (occurrence) =>
             occurrence.includeInCalendar && occurrence.status !== "skipped"
         )
-        const description = buildDescription(included)
+        const description = buildDescription(included, options.baseUrl)
         const googleCalendarColorId = googleCalendarColorIdForTimeBlock(
           block.timeBlockId,
           block.color
@@ -81,18 +87,42 @@ export function googleCalendarColorIdForTimeBlock(
   )
 }
 
-function buildDescription(occurrences: TaskOccurrence[]) {
+function buildDescription(occurrences: TaskOccurrence[], baseUrl?: string) {
   return occurrences
     .map((occurrence, index) => {
+      const timeLabel = `(من ${formatEventTime(occurrence.startTime)} إلى ${formatEventTime(occurrence.endTime)})`
+      const workoutHref = workoutHrefForTemplate(occurrence.templateId)
+      const workoutUrl = workoutHref
+        ? absoluteUrl(workoutHref, baseUrl)
+        : null
+
+      if (workoutUrl) {
+        const notes = occurrence.notes ? `\n   ${occurrence.notes}` : ""
+
+        return `${index + 1}. ${occurrence.title} ${timeLabel}${notes}\n   رابط التمرين: ${workoutUrl}`
+      }
+
       const checklist = occurrence.checklist
         .map((item) => `   - ${item}`)
         .join("\n")
       const notes = occurrence.notes ? `\n   ${occurrence.notes}` : ""
       const details = [notes, checklist ? `\n${checklist}` : ""].join("")
 
-      return `${index + 1}. ${occurrence.title} (من ${formatEventTime(occurrence.startTime)} إلى ${formatEventTime(occurrence.endTime)})${details}`
+      return `${index + 1}. ${occurrence.title} ${timeLabel}${details}`
     })
     .join("\n\n")
+}
+
+function absoluteUrl(path: string, baseUrl?: string) {
+  if (!baseUrl) {
+    return path
+  }
+
+  try {
+    return new URL(path, baseUrl).toString()
+  } catch {
+    return path
+  }
 }
 
 function formatEventTime(value: string | undefined) {

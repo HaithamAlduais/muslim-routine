@@ -50,7 +50,7 @@ describe("prayer API routes", () => {
       })
     )
     const body = (await response.json()) as {
-      events: Array<{ localId: string; start: string }>
+      events: Array<{ localId: string; start: string; description: string }>
     }
 
     expect(response.status).toBe(200)
@@ -59,6 +59,9 @@ describe("prayer API routes", () => {
         event.localId.endsWith(":fajr_to_sunrise")
       )?.start
     ).toBe("2026-05-24T03:37:00+03:00")
+    expect(body.events.map((event) => event.description).join("\n")).toContain(
+      "http://localhost/workout?day=Day%201"
+    )
   })
 
   it("builds calendar events from edited routine blocks", async () => {

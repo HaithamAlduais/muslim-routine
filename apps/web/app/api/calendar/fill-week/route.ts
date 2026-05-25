@@ -60,7 +60,9 @@ export async function POST(request: Request) {
     timeBlocks,
     templates,
   })
-  const events = await buildCalendarBlockEvents(preview)
+  const events = await buildCalendarBlockEvents(preview, {
+    baseUrl: getRequestBaseUrl(request),
+  })
   const calendarId = process.env.GOOGLE_CALENDAR_ID
   const calendar = await createServiceAccountCalendarClient()
 
@@ -109,6 +111,26 @@ export async function POST(request: Request) {
     events,
     result,
   })
+}
+
+function getRequestBaseUrl(request: Request) {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
+
+  if (configuredUrl) {
+    return configuredUrl
+  }
+
+  const requestUrl = new URL(request.url)
+  const forwardedProto = request.headers.get("x-forwarded-proto")
+  const forwardedHost = request.headers.get("x-forwarded-host")
+  const host = forwardedHost ?? request.headers.get("host")
+
+  return host
+    ? `${forwardedProto ?? requestUrl.protocol.replace(":", "")}://${host}`
+    : requestUrl.origin
 }
 
 async function listExistingExports(

@@ -285,6 +285,7 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const [exportState, setExportState] = React.useState<ExportState>({
     status: "idle",
   })
+  const [appBaseUrl, setAppBaseUrl] = React.useState("")
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [locationState, setLocationState] = React.useState<LocationState>({
     status: "idle",
@@ -319,8 +320,11 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   )
 
   const calendarEvents = React.useMemo(
-    () => buildCalendarBlockEvents(preview),
-    [preview]
+    () =>
+      buildCalendarBlockEvents(preview, {
+        baseUrl: appBaseUrl || undefined,
+      }),
+    [appBaseUrl, preview]
   )
 
   const visibleEvents = calendarEvents
@@ -331,6 +335,10 @@ export function RoutinePlanner({ initialStartDate }: RoutinePlannerProps) {
   const activeTemplateCount = templates.filter(
     (template) => template.isActive
   ).length
+
+  React.useEffect(() => {
+    setAppBaseUrl(window.location.origin)
+  }, [])
 
   React.useEffect(() => {
     const storedSettings = parseStoredPrayerSettings(

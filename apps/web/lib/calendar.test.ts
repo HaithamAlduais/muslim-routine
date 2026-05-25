@@ -148,4 +148,54 @@ describe("buildCalendarBlockEvents", () => {
     expect(descriptions).toContain("تمر ولبن وبروتين")
     expect(descriptions).toContain("سبحان الله وبحمده 100 مرة")
   })
+
+  it("links workout templates instead of dumping the full exercise plan", () => {
+    const workoutDay: PackedDay = {
+      date: "2026-05-26",
+      blocks: [
+        {
+          timeBlockId: "fajr_to_sunrise",
+          nameAr: "الفجر إلى الشروق",
+          sortOrder: 20,
+          color: "emerald",
+          startTime: "2026-05-26T03:37:00+03:00",
+          endTime: "2026-05-26T05:06:00+03:00",
+          occurrences: [
+            {
+              id: "overload-day-2-2026-05-26",
+              templateId: "overload-day-2",
+              title: "Overload Tracker - Day 2",
+              date: "2026-05-26",
+              timeBlockId: "fajr_to_sunrise",
+              durationMinutes: 35,
+              status: "planned",
+              checklist: [
+                "Superset 1: The Flat Bench: Mid Chest DB Press + Dumbbell Upper Back Rows",
+              ],
+              notes: "Mid-Chest / Thrust Focus.",
+              priority: "medium",
+              color: "emerald",
+              isModified: false,
+              syncStatus: "not_synced",
+              sortOrder: 10,
+              includeInCalendar: true,
+              startTime: "2026-05-26T04:16:00+03:00",
+              endTime: "2026-05-26T04:51:00+03:00",
+            },
+          ],
+        },
+      ],
+      conflicts: [],
+    }
+
+    const events = buildCalendarBlockEvents([workoutDay], {
+      baseUrl: "https://routine.example",
+    })
+
+    expect(events[0]!.description).toContain(
+      "رابط التمرين: https://routine.example/workout?day=Day%202"
+    )
+    expect(events[0]!.description).toContain("Mid-Chest / Thrust Focus.")
+    expect(events[0]!.description).not.toContain("Superset 1")
+  })
 })
